@@ -1,0 +1,17 @@
+{
+  "name": "trimez-schule",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:migrate": "node packages/db/migrate.mjs",
+    "db:seed": "node packages/db/seed.mjs",
+    "dev:api": "node --watch apps/api/src/server.mjs",
+    "dev:web": "pnpm --filter @schule/web dev",
+    "build": "pnpm --filter @schule/web build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "pg": "8.13.1",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,17 @@
+# Render-Blueprint: Testserver (Gratis-Stufe, Frankfurt). Nur Testdaten: bei jedem Neustart wird die Testschule neu angelegt.
+services:
+  - type: web
+    name: trimez-schule-test
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/schule/seeufer
+    envVars:
+      - key: SEED_PASSWORT        # Passwort aller Testkonten (im Render-Dashboard unter «Environment» ablesen)
+        generateValue: true
+      - key: APP_SECRET
+        generateValue: true
+      - key: ANMELDE_LIMIT
+        value: "30"

@@ -1,0 +1,18 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Nur Pakete, die seit mindestens einem Tag veröffentlicht sind (Schutz vor frisch kompromittierten Versionen; pnpm 12 verlangt das ohnehin)
+minimumReleaseAge: 1440
+
+# Vorübergehend ältere Versionen, bis die neuesten einen Tag alt sind (siehe minimumReleaseAge)
+overrides:
+  browserslist: 4.29.5
+  set-cookie-parser: 3.2.2
+  update-browserslist-db: 1.3.4
+
+# Diese Pakete dürfen beim Installieren ein Skript ausführen (esbuild prüft dabei sein Programm für Windows/Mac/Linux)
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-server-setzen"
+description = "Enables the lu_server_setzen command without any pre-configured scope."
+commands.allow = ["lu_server_setzen"]
+
+[[permission]]
+identifier = "deny-lu-server-setzen"
+description = "Denies the lu_server_setzen command without any pre-configured scope."
+commands.deny = ["lu_server_setzen"]

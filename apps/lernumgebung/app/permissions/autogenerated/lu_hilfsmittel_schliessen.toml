@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-hilfsmittel-schliessen"
+description = "Enables the lu_hilfsmittel_schliessen command without any pre-configured scope."
+commands.allow = ["lu_hilfsmittel_schliessen"]
+
+[[permission]]
+identifier = "deny-lu-hilfsmittel-schliessen"
+description = "Denies the lu_hilfsmittel_schliessen command without any pre-configured scope."
+commands.deny = ["lu_hilfsmittel_schliessen"]

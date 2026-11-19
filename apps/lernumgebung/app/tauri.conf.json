@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "trimez. Lernumgebung",
+  "version": "1.0.0",
+  "identifier": "ch.trimez.lernumgebung",
+  "build": { "frontendDist": "leer" },
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "app"],
+    "publisher": "trimez.",
+    "copyright": "trimez.",
+    "category": "Education",
+    "shortDescription": "Gesperrte Umgebung für Prüfungen",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.png"],
+    "windows": { "nsis": { "installMode": "currentUser" } },
+    "macOS": { "minimumSystemVersion": "12.0", "entitlements": "macos/Entitlements.plist" }
+  }
+}

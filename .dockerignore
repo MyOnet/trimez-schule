@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+apps/lernumgebung
+daten
+.git
+*.log
+tests
+docs/bilder

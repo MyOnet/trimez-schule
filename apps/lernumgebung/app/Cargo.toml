@@ -1,0 +1,40 @@
+[package]
+name = "trimez-lernumgebung"
+version.workspace = true
+edition.workspace = true
+description = "trimez. Lernumgebung: gesperrte Umgebung für Prüfungen"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+base64 = "0.22"
+
+[dependencies]
+lernumgebung-kern = { path = "../kern" }
+tauri = { version = "2", features = ["unstable"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# TLS des Betriebssystems (Windows: Schannel, macOS: Security.framework); kein C-Compiler nötig
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "cookies", "gzip"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync"] }
+sysinfo = "0.33"
+url = "2"
+dirs = "6"
+log = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+  "Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_Threading",
+  "Win32_System_DataExchange", "Win32_System_Diagnostics_Debug", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader",
+  "Win32_System_StationsAndDesktops", "Win32_Security",
+  "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_System_ProcessStatus", "Win32_System_Registry", "Win32_System_SystemInformation",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSRunningApplication", "NSScreen"] }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSError", "NSString"] }
+
+[features]
+# Apples Prüfungsschnittstelle (Automatic Assessment Configuration). Braucht die Berechtigung
+# com.apple.developer.automatic-assessment-configuration von Apple; ohne sie startet die App mit dieser Funktion nicht.
+aac = []

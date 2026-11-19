@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-seite-oeffnen"
+description = "Enables the lu_seite_oeffnen command without any pre-configured scope."
+commands.allow = ["lu_seite_oeffnen"]
+
+[[permission]]
+identifier = "deny-lu-seite-oeffnen"
+description = "Denies the lu_seite_oeffnen command without any pre-configured scope."
+commands.deny = ["lu_seite_oeffnen"]

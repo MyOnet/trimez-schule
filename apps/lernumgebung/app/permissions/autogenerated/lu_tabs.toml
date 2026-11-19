@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-tabs"
+description = "Enables the lu_tabs command without any pre-configured scope."
+commands.allow = ["lu_tabs"]
+
+[[permission]]
+identifier = "deny-lu-tabs"
+description = "Denies the lu_tabs command without any pre-configured scope."
+commands.deny = ["lu_tabs"]

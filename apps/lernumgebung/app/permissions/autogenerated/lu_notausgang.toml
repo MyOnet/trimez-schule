@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-notausgang"
+description = "Enables the lu_notausgang command without any pre-configured scope."
+commands.allow = ["lu_notausgang"]
+
+[[permission]]
+identifier = "deny-lu-notausgang"
+description = "Denies the lu_notausgang command without any pre-configured scope."
+commands.deny = ["lu_notausgang"]
