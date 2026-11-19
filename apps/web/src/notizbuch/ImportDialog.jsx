@@ -6,6 +6,8 @@ import { Dialog } from "./ui.jsx";
 import { api } from "../api.js";
 import { listNotebooks, importNotebooks, Cancelled } from "./importers/graph.js";
 import { ACCEPT, filesToPages } from "./importers/files.js";
+import { exportLesen, exportImportieren } from "./importers/onenote-export.js";
+import { saveAsset } from "./dateien.js";
 import { pageText } from "./model.js";
 
 function schreibbareBereiche(buch) { return buch.bereiche.filter((b) => b.schreiben && (b.bereich !== "schueler" || buch.rolle === "sch")); }
@@ -20,7 +22,7 @@ export default function ImportDialog({ uid, kurz, start, onClose }) {
   const [run, setRun] = useState(null);
   const [status, setStatus] = useState(null);
   const [over, setOver] = useState(false);
-  const fileRef = useRef(null), gestartet = useRef(false);
+  const fileRef = useRef(null), zipRef = useRef(null), gestartet = useRef(false);
   const zielB = ziele.find((b) => S.bereichKey(b) === ziel);
 
   useEffect(() => { api("/api/onenote/status").then(setStatus).catch(() => setStatus({ verbunden: false, moeglich: false })); }, []);
@@ -55,6 +57,21 @@ export default function ImportDialog({ uid, kurz, start, onClose }) {
     await S.laden(uid); S.waehleBereich(ziel);
     setRun({ ...r }); setView("done");
   }
+  async function oneNoteExport(file) {
+    const r = { kind: "ms", lines: [], prog: { phase: "Export lesen", done: 0, total: 0, text: file.name }, stats: null, error: null };
+    const bump = () => setRun({ ...r });
+    setRun(r); setView("run");
+    try {
+      const ex = await exportLesen(file);
+      r.lines.push({ t: `${ex.buecher.length} Notizbuch${ex.buecher.length === 1 ? "" : "er"}, ${ex.seiten} Seiten gefunden` }); bump();
+      r.stats = await exportImportieren(ex, {
+        erstellen, seitenSpeichern, pageText, hochladen: (bytes, ext, name, aid) => saveAsset(bytes, ext, name, aid),
+        progress: (p) => { r.prog = p; bump(); }, log: (t, bad) => { r.lines = [...r.lines.slice(-400), { t, bad }]; bump(); },
+      });
+    } catch (e) { r.error = String(e.message || e); }
+    await S.laden(uid); S.waehleBereich(ziel);
+    setRun({ ...r }); setView("done");
+  }
   async function dateien(files) {
     const r = { kind: "files", lines: [], prog: { phase: "Dateien lesen", done: 0, total: files.length, text: "" }, stats: null, error: null };
     setRun(r); setView("run");
@@ -83,11 +100,16 @@ export default function ImportDialog({ uid, kurz, start, onClose }) {
         </label>
         <div className="imp-cards">
           <div className="imp-card">
-            <h3><LogIn />Aus OneNote</h3>
-            <p>Holt alle Ihre OneNote-Notizbücher auf einmal: Abschnittsgruppen, Abschnitte, Seiten und Unterseiten in derselben Reihenfolge, mit Formatierung, Tags, Bildern, Anhängen und Handschrift.</p>
-            {status && !status.moeglich && <div className="small" style={{ color: "var(--danger)" }}><TriangleAlert style={{ width: 14, height: 14, verticalAlign: -2 }} /> Microsoft 365 ist für Ihre Schule noch nicht verbunden. Nutzen Sie solange den Datei-Import.</div>}
-            <p className="small muted">Sie melden sich mit Ihrem Schulkonto an. RESCOOL liest Ihre Notizen nur für diesen Import; OneNote bleibt unverändert.</p>
-            <button className="btn primary big" disabled={!status || !status.moeglich} onClick={() => (status.verbunden ? microsoft() : verbinden())}><CloudDownload />Alles aus OneNote importieren</button>
+            <h3><CloudDownload />Aus OneNote</h3>
+            <p>Übernimmt alle Ihre Notizbücher <b>genau wie in OneNote</b>: Abschnittsgruppen, Abschnitte mit ihren Farben, Seiten und Unterseiten in derselben Reihenfolge, dazu Text, Tabellen, Tags, Bilder und Anhänge.</p>
+            <ol className="steps small">
+              <li><a href="/OneNote-zu-RESCOOL.ps1" download>Programm «OneNote zu RESCOOL» herunterladen</a></li>
+              <li>In PowerShell starten (OneNote-App muss installiert sein):<br /><code>powershell -ExecutionPolicy Bypass -File "$HOME\Downloads\OneNote-zu-RESCOOL.ps1"</code></li>
+              <li>Die ZIP-Datei, die auf dem Desktop entsteht, hier wählen.</li>
+            </ol>
+            <button className="btn primary big" onClick={() => zipRef.current.click()}><FileUp />OneNote-Export hochladen (.zip)</button>
+            <input ref={zipRef} type="file" accept=".zip" hidden onChange={(e) => { if (e.target.files[0]) oneNoteExport(e.target.files[0]); }} />
+            {status && status.moeglich && <button className="btn" style={{ justifyContent: "center" }} onClick={() => (status.verbunden ? microsoft() : verbinden())}><LogIn />Stattdessen über das Microsoft-Konto der Schule</button>}
           </div>
           <div className="imp-card">
             <h3><FileUp />Aus Dateien</h3>
@@ -127,7 +149,7 @@ function Fertig({ run, onClose }) {
     {run.error ? <div className="acct" style={{ background: "color-mix(in srgb, var(--danger) 12%, transparent)" }}><TriangleAlert style={{ color: "var(--danger)" }} />{run.error}</div>
       : <div className="acct"><CheckCircle2 style={{ color: "var(--ok)" }} /><b>{run.kind === "ms" ? "Ihre OneNote-Notizbücher sind da." : `${s.pages} Seite${s.pages === 1 ? "" : "n"} übernommen.`}</b></div>}
     {run.kind === "ms" && run.stats && <div className="big-num" style={{ marginTop: 14 }}>
-      {[["Notizbücher", s.notebooks], ["Abschnitte", s.sections], ["Seiten", s.pages], ["Bilder", s.images], ["Anhänge", s.files], ["Striche", s.ink]].map(([l, v]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
+      {[["Notizbücher", s.notebooks], ["Abschnitte", s.sections], ["Seiten", s.pages], ["Bilder", s.images], ["Anhänge", s.files], ["Handschrift", s.ink]].map(([l, v]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
     </div>}
     {probleme.length > 0 && <><p className="small" style={{ margin: "12px 0 6px" }}><b>{probleme.length} Hinweis{probleme.length === 1 ? "" : "e"}:</b></p>
       <div className="log scroll">{probleme.map((l, i) => <div key={i} className="err">{l.t}</div>)}</div></>}
