@@ -1,7 +1,7 @@
 ﻿# OneNote zu RESCOOL
 # Exportiert alle geöffneten OneNote-Notizbücher mit ihrem genauen Aufbau (Reihenfolge, Farben, Abschnittsgruppen,
 # Unterseiten) in eine ZIP-Datei, die RESCOOL beim Import einliest. Es wird nichts in OneNote verändert und nichts verschickt.
-# Braucht die OneNote-App für Windows (Microsoft 365 / Office), nicht die Web-Version.
+# Braucht die OneNote-App für Windows (Microsoft 365 / Office), nicht die Web-Version, und Windows PowerShell (powershell.exe).
 #
 # Starten: Rechtsklick auf die Datei > «Mit PowerShell ausführen»
 # oder in PowerShell:  powershell -ExecutionPolicy Bypass -File "$HOME\Downloads\OneNote-zu-RESCOOL.ps1"
@@ -9,6 +9,28 @@
 $ErrorActionPreference = 'Stop'
 $Host.UI.RawUI.WindowTitle = 'OneNote zu RESCOOL'
 function Ende($code) { Write-Host ''; Read-Host 'Enter drücken zum Schliessen' | Out-Null; exit $code }
+
+# Handschrift: Windows liest das Tintenformat von OneNote (ISF) selbst. Jeder Strich kommt mit allen Punkten,
+# Druck, Farbe, Dicke und Stiftart heraus, nichts wird nachgezeichnet oder geglättet.
+$tinteMoeglich = $true
+try { Add-Type -AssemblyName PresentationCore, WindowsBase } catch { $tinteMoeglich = $false }
+$inv = [Globalization.CultureInfo]::InvariantCulture
+function Tinte([string]$b64) {
+  $bytes = [Convert]::FromBase64String($b64)
+  $ms = New-Object IO.MemoryStream(, $bytes)
+  $sc = New-Object System.Windows.Ink.StrokeCollection($ms)
+  $b = $sc.GetBounds()
+  $striche = New-Object System.Collections.ArrayList
+  foreach ($s in $sc) {
+    $da = $s.DrawingAttributes
+    $sb = New-Object Text.StringBuilder
+    foreach ($pt in $s.StylusPoints) { [void]$sb.Append($pt.X.ToString('0.##', $inv)).Append(',').Append($pt.Y.ToString('0.##', $inv)).Append(',').Append($pt.PressureFactor.ToString('0.###', $inv)).Append(';') }
+    $c = $da.Color
+    [void]$striche.Add([ordered]@{ farbe = ('#{0:X2}{1:X2}{2:X2}' -f $c.R, $c.G, $c.B); deckung = [Math]::Round($c.A / 255, 3); breite = [Math]::Round($da.Width, 3); hoehe = [Math]::Round($da.Height, 3)
+      marker = [bool]$da.IsHighlighter; spitze = $da.StylusTip.ToString(); druck = -not $da.IgnorePressure; punkte = $sb.ToString().TrimEnd(';') })
+  }
+  return [ordered]@{ x = $b.X; y = $b.Y; w = $b.Width; h = $b.Height; striche = $striche }
+}
 
 Write-Host ''
 Write-Host '  OneNote zu RESCOOL' -ForegroundColor Cyan
@@ -74,11 +96,21 @@ foreach ($p in $seiten) {
         $f.SetAttribute('rescoolDatei', 'dateien/' + $neu)
       }
     }
-    $px.Save((Join-Path $ziel ('seiten\' + $name + '.xml')))
-    # Handschrift: zusätzlich die ganze Seite als PDF, damit nichts verloren geht
-    if ($px.SelectSingleNode('//one:InkDrawing|//one:InkWord|//one:InkParagraph', $pns)) {
+    # Handschrift als echte Striche; nur wenn das nicht geht, die ganze Seite zusätzlich als PDF
+    $tinte = New-Object System.Collections.ArrayList
+    $ohne = $false
+    $k = 0
+    foreach ($ink in $px.SelectNodes('//one:InkDrawing|//one:InkWord', $pns)) {
+      $d = $ink.SelectSingleNode('one:Data', $pns)
+      if (-not $d -or -not $tinteMoeglich) { $ohne = $true; continue }
+      try { $t = Tinte $d.InnerText; $t['knoten'] = $k; [void]$tinte.Add($t); $ink.SetAttribute('rescoolTinte', [string]$k); $k++ }
+      catch { $ohne = $true; [void]$fehler.Add(("Handschrift auf «{0}» nicht lesbar: {1}" -f $p.name, $_.Exception.Message)) }
+    }
+    if ($tinte.Count) { [IO.File]::WriteAllText((Join-Path $ziel ('seiten\' + $name + '-tinte.json')), (ConvertTo-Json -InputObject @($tinte) -Depth 6 -Compress), (New-Object Text.UTF8Encoding $false)) }
+    if ($ohne -or $px.SelectSingleNode('//one:InkParagraph', $pns)) {
       try { $on.Publish($p.ID, (Join-Path $ziel ('seiten\' + $name + '.pdf')), 3, '') } catch { [void]$fehler.Add(("Handschrift auf «{0}»: {1}" -f $p.name, $_.Exception.Message)) }
     }
+    $px.Save((Join-Path $ziel ('seiten\' + $name + '.xml')))
     $p.SetAttribute('rescoolDatei', 'seiten/' + $name + '.xml')
   } catch {
     [void]$fehler.Add(("Seite «{0}»: {1}" -f $p.name, $_.Exception.Message))

@@ -27,7 +27,7 @@ function tagVon(def, tag) {
 }
 
 /** Ein Seiten-XML in Sheaf-Elemente umwandeln. hochladen(bytes, ext, name) → Kennung der Datei */
-async function seiteLesen(doc, zip, hochladen, log, titel) {
+async function seiteLesen(doc, zip, hochladen, log, titel, tinte) {
   const page = doc.documentElement;
   const tagDefs = new Map(kinder(page, "TagDef").map((t) => [t.getAttribute("index"), t]));
   const stile = new Map(kinder(page, "QuickStyleDef").map((q) => [q.getAttribute("index"), q.getAttribute("name")]));
@@ -111,6 +111,31 @@ async function seiteLesen(doc, zip, hochladen, log, titel) {
       const o = ort(el); items.push({ id: uid(), type: "file", x: Math.round(o.x), y: Math.round(o.y), asset: d.id, name: d.name, size: d.size });
     }
   }
+  // Handschrift: Striche an den Ort und in die Grösse, die OneNote für die Zeichnung angibt
+  const strokes = [];
+  if (tinte && tinte.length) {
+    const knoten = new Map([...doc.getElementsByTagNameNS("*", "*")].filter((e) => e.hasAttribute("rescoolTinte")).map((e) => [Number(e.getAttribute("rescoolTinte")), e]));
+    const proGliederung = new Map(); // Tinte in Textblöcken ohne eigene Position: an den Anfang des Blocks
+    for (const t of tinte) {
+      const el = knoten.get(t.knoten); if (!el || !t.striche || !t.striche.length) continue;
+      let box = kind(el, "Position") ? ort(el) : null, sx = 1, sy = 1, ox, oy;
+      if (box && t.w > 0 && t.h > 0 && box.w > 0 && box.h > 0) { sx = box.w / t.w; sy = box.h / t.h; if (sx < 0.5 || sx > 2 || sy < 0.5 || sy > 2) sx = sy = 1; }
+      if (box) { ox = box.x; oy = box.y; }
+      else {
+        let o = el.parentElement; while (o && o.localName !== "Outline") o = o.parentElement;
+        const g = o ? ort(o) : { x: 48, y: 120 };
+        const vorher = proGliederung.get(o) || 0;
+        ox = g.x; oy = g.y + vorher; proGliederung.set(o, vorher + t.h + 4);
+      }
+      for (const st of t.striche) {
+        const punkte = String(st.punkte || "").split(";").filter(Boolean).map((q) => { const [x, y, p] = q.split(",").map(Number); return [+(ox + (x - t.x) * sx).toFixed(2), +(oy + (y - t.y) * sy).toFixed(2), isNaN(p) ? 0.5 : p]; });
+        if (!punkte.length) continue;
+        const marker = !!st.marker;
+        strokes.push({ id: uid(), tool: marker ? "highlighter" : "pen", exakt: true, color: st.farbe || "#000000", deckung: st.deckung ?? 1,
+          size: Math.max(0.2, (marker ? Math.max(st.breite, st.hoehe) : st.breite) * (sx + sy) / 2), pressure: !!st.druck && !marker, spitze: st.spitze, points: punkte });
+      }
+    }
+  }
   const settings = kind(page, "PageSettings");
   const bg = {};
   if (settings) {
@@ -118,7 +143,8 @@ async function seiteLesen(doc, zip, hochladen, log, titel) {
     const rl = kind(settings, "RuleLines");
     if (rl && rl.getAttribute("visible") === "true") bg.rule = kind(rl, "Vertical") ? "grid" : "college";
   }
-  return { items: normalize(items).items, bg };
+  const n = normalize(items, strokes);
+  return { items: n.items, strokes: n.strokes, bg };
 }
 
 let pdfjs = null;
@@ -184,20 +210,22 @@ export async function exportImportieren({ zip, buecher }, { erstellen, seitenSpe
       for (const s of k.seiten) {
         progress({ phase: "Seiten übernehmen", text: `${pfad} › ${k.name} › ${s.titel || "Ohne Titel"}`, done, total });
         const hoch = async (bytes, ext, name) => { const id = await hochladen(bytes, ext, name, sec.id); if (/^(png|jpg|gif|webp)$/.test(ext)) stats.images++; else stats.files++; return id; };
-        let items = [], bg = {};
+        let items = [], strokes = [], bg = {};
         try {
           const xml = await zip.file(s.datei).async("string");
-          ({ items, bg } = await seiteLesen(new DOMParser().parseFromString(xml, "application/xml"), zip, hoch, log, s.titel));
+          const tj = zip.file(s.datei.replace(/\.xml$/, "-tinte.json"));
+          const tinte = tj ? JSON.parse((await tj.async("string")).replace(/^\uFEFF/, "")) : null;
+          ({ items, strokes, bg } = await seiteLesen(new DOMParser().parseFromString(xml, "application/xml"), zip, hoch, log, s.titel, tinte));
+          if (strokes.length) stats.ink += strokes.length;
           const pdf = zip.file(s.datei.replace(/\.xml$/, ".pdf"));
           if (pdf) {
             let y = 24; for (const it of items) y = Math.max(y, it.y + (it.h || 120));
-            items.push({ id: uid(), type: "text", x: 48, y: y + 24, w: 560, html: "<p><b>Originalseite mit Handschrift</b></p>" });
+            items.push({ id: uid(), type: "text", x: 48, y: y + 24, w: 560, html: "<p><b>Originalseite</b> (ein Teil der Handschrift liess sich nicht als Striche lesen)</p>" });
             for (const b of await pdfBilder(await pdf.async("uint8array"), hoch)) { items.push({ id: uid(), type: "image", x: 48, y: y + 64, w: b.w, h: b.h, asset: b.id, alt: "Originalseite aus OneNote", printout: true }); y += b.h + 16; }
-            stats.ink++;
           }
         } catch (e) { stats.failed++; log(`  ✗ «${s.titel || "Ohne Titel"}»: ${e.message}`, true); }
-        const p = { title: s.titel, items, strokes: [], bg };
-        fertig.push({ titel: s.titel, ebene: s.ebene, erstellt_am: s.erstellt, geaendert_am: s.geaendert, inhalt: { items, strokes: [], bg }, text: pageText(p) });
+        const p = { title: s.titel, items, strokes, bg };
+        fertig.push({ titel: s.titel, ebene: s.ebene, erstellt_am: s.erstellt, geaendert_am: s.geaendert, inhalt: { items, strokes, bg }, text: pageText(p) });
         done++; stats.pages++;
       }
       fertig.forEach((p, i) => { p.ebene = Math.min(p.ebene, i === 0 ? 0 : fertig[i - 1].ebene + 1); });

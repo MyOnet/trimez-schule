@@ -149,7 +149,7 @@ function Fertig({ run, onClose }) {
     {run.error ? <div className="acct" style={{ background: "color-mix(in srgb, var(--danger) 12%, transparent)" }}><TriangleAlert style={{ color: "var(--danger)" }} />{run.error}</div>
       : <div className="acct"><CheckCircle2 style={{ color: "var(--ok)" }} /><b>{run.kind === "ms" ? "Ihre OneNote-Notizbücher sind da." : `${s.pages} Seite${s.pages === 1 ? "" : "n"} übernommen.`}</b></div>}
     {run.kind === "ms" && run.stats && <div className="big-num" style={{ marginTop: 14 }}>
-      {[["Notizbücher", s.notebooks], ["Abschnitte", s.sections], ["Seiten", s.pages], ["Bilder", s.images], ["Anhänge", s.files], ["Handschrift", s.ink]].map(([l, v]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
+      {[["Notizbücher", s.notebooks], ["Abschnitte", s.sections], ["Seiten", s.pages], ["Bilder", s.images], ["Anhänge", s.files], ["Striche", s.ink]].map(([l, v]) => <div key={l}><b>{v}</b><span>{l}</span></div>)}
     </div>}
     {probleme.length > 0 && <><p className="small" style={{ margin: "12px 0 6px" }}><b>{probleme.length} Hinweis{probleme.length === 1 ? "" : "e"}:</b></p>
       <div className="log scroll">{probleme.map((l, i) => <div key={i} className="err">{l.t}</div>)}</div></>}

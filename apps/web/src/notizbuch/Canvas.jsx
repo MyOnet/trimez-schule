@@ -1,6 +1,6 @@
 // The page: title and date, free-form note boxes, pictures, attachments and ink.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { strokePath } from "./ink.js";
+import { strokePath, exaktTeile } from "./ink.js";
 import { Minus, Plus } from "lucide-react";
 import * as S from "./store.js";
 import { assetUrl, openAsset, openUrl, saveAsset } from "./dateien.js";
@@ -374,7 +374,11 @@ function Ink({ page, mode, zoom, surface }) {
   return <>
     <svg className={"ink" + (live_ ? " live" : "")} width="100%" height="100%" style={{ width: "100%", height: "100%" }}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={() => setRing(null)}>
-      {strokes.map((s) => <path key={s.id} d={strokePath(s)} fill={s.color} className={s.tool === "highlighter" ? "ink-hl" : ""} opacity={s.tool === "highlighter" ? 0.45 : 1} />)}
+      {strokes.map((s) => s.exakt
+        ? <g key={s.id} className={s.tool === "highlighter" ? "ink-hl" : ""} opacity={s.tool === "highlighter" ? 0.5 : s.deckung ?? 1}>
+            {exaktTeile(s).map((t, i) => <path key={i} d={t.d} fill="none" stroke={s.color} strokeWidth={t.w} strokeLinecap={s.spitze === "Rectangle" ? "square" : "round"} strokeLinejoin={s.spitze === "Rectangle" ? "miter" : "round"} />)}
+          </g>
+        : <path key={s.id} d={strokePath(s)} fill={s.color} className={s.tool === "highlighter" ? "ink-hl" : ""} opacity={s.tool === "highlighter" ? 0.45 : 1} />)}
     </svg>
     {mode === "eraser" && ring && <div className="eraser-ring" style={{ left: ring.x - 10, top: ring.y - 10, width: 20, height: 20 }} />}
   </>;
