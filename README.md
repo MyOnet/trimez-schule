@@ -1,6 +1,6 @@
-# trimez. Schule
+# RESCOOL
 
-Schulplattform für Gymnasien: Notenbuch, Material, Prüfungen und die gesicherte Lernumgebung für die Laptops der Schülerinnen und Schüler. Ein Produkt von trimez. (Schweiz).
+Schulplattform für Gymnasien: Notenbuch, Material, Prüfungen und die gesicherte Lernumgebung für die Laptops der Schülerinnen und Schüler.
 
 **Stand: Phase 6 (Lernumgebung).** Die Phasen und Entscheidungen stehen in `docs/`.
 
@@ -63,7 +63,7 @@ node tests/e2e-phase7.mjs    # Unterrichtsmodus: Lektion, Browser und App, an al
 | `APP_SECRET` | 32 Byte, Base64; verschlüsselt die Zwei-Faktor-Schlüssel. In Produktion Pflicht |
 | `COOKIE_SECRET` | Signiert das Cookie für die Anmeldung über Microsoft oder edu-ID |
 | `PUBLIC_URL` | z. B. `https://schule.trimez.ch` (für die Rückleitung nach der Anmeldung) |
-| `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | App-Registrierung von trimez in Microsoft Entra (mehrmandantenfähig); der Mandant jeder Schule steht in `schule.ms_tenant` |
+| `MS_CLIENT_ID`, `MS_CLIENT_SECRET` | App-Registrierung von RESCOOL in Microsoft Entra (mehrmandantenfähig); der Mandant jeder Schule steht in `schule.ms_tenant`. Umleitungsadressen (Plattform «Web»): `PUBLIC_URL/api/oidc/rueckruf` und `PUBLIC_URL/api/onenote/rueckruf`. Delegierte Berechtigungen: `openid`, `email`, `profile`, `offline_access`, `Notes.Read` (für den OneNote-Import). Die Informatik der Schule erteilt einmal die Administratorzustimmung. |
 | `EDUID_CLIENT_ID`, `EDUID_CLIENT_SECRET`, `EDUID_ISSUER` | Zugang von trimez bei SWITCH edu-ID |
 | `NODE_ENV=production` | Sichere Cookies, kein Entwicklungsschlüssel |
 
@@ -80,7 +80,7 @@ Hochgeladene Dateien liegen standardmässig verschlüsselt im Ordner `daten/date
 
 ## KI für die Umwandlung von Prüfungen (optional)
 
-Ohne KI erkennt trimez. Schule Aufgaben nach Regeln (Nummerierung, Punkte, Antwortmöglichkeiten). Mit KI werden auch unübliche Layouts erkannt. Dafür in den Umgebungsvariablen des Servers eintragen:
+Ohne KI erkennt RESCOOL Aufgaben nach Regeln (Nummerierung, Punkte, Antwortmöglichkeiten). Mit KI werden auch unübliche Layouts erkannt. Dafür in den Umgebungsvariablen des Servers eintragen:
 
 | Variable | Bedeutung |
 |---|---|
@@ -104,7 +104,7 @@ Die App setzt auch im **Unterrichtsmodus** die erlaubten Seiten durch: Sie über
 
 ## Testserver im Internet (Render, Gratis-Stufe)
 
-Für Tests ohne eigenen Server-PC: `render.yaml` und `deploy/Dockerfile` bauen einen einzigen Container mit PostgreSQL und trimez. Schule.
+Für Tests ohne eigenen Server-PC: `render.yaml` und `deploy/Dockerfile` bauen einen einzigen Container mit PostgreSQL und RESCOOL.
 
 1. Code in ein (privates) GitHub-Repository stellen.
 2. Auf render.com: *New → Blueprint*, das Repository wählen, *Apply*. Der erste Bau dauert einige Minuten.
@@ -112,3 +112,12 @@ Für Tests ohne eigenen Server-PC: `render.yaml` und `deploy/Dockerfile` bauen e
 4. Adresse: `https://trimez-schule-test.onrender.com` (oder wie Render sie anzeigt). In der Lernumgebung (Testversion) beim ersten Start eingeben.
 
 Grenzen der Gratis-Stufe: Nach 15 Minuten ohne Anfragen schläft der Dienst ein, das Aufwachen dauert bis zu einer Minute. **Bei jedem Neustart wird die Testschule neu angelegt**, Eingaben gehen dann verloren. Rechenzentrum in Frankfurt: nur Testdaten, keine echten Schülerdaten. Der Server läuft mit dem Entwicklungsschlüssel der Lernumgebung (passt zur Testversion der App).
+
+## Kursnotizbuch
+
+Jeder Unterricht hat ein Kursnotizbuch (Sheaf): Inhaltsbibliothek (Lehrperson schreibt, Klasse liest), Zusammenarbeit (alle schreiben), Bereich nur für Lehrpersonen und ein eigener Bereich für jede Schülerin und jeden Schüler (sichtbar für die Person und ihre Lehrpersonen, nicht für die Administration).
+
+- **Erlauben oder sperren**: dauerhaft im Notizbuch (Schalter «Klasse darf öffnen»), pro Lektion (Unterrichtsmodus) und pro Prüfung (Hilfsmittel). Während einer Lektion ist nur das Notizbuch dieses Fachs offen; in einer Prüfung nur Bibliothek und eigener Bereich, ohne Zusammenarbeit. Der Server setzt das durch.
+- **Seite verteilen**: Rechtsklick auf eine Seite der Bibliothek, «An alle Schüler/innen verteilen».
+- **OneNote-Import**: «Importieren», dann «Alles aus OneNote importieren». Die Anmeldung läuft über das Microsoft-Konto der Schule (`Notes.Read`), danach kommen alle Notizbücher mit Abschnittsgruppen, Abschnitten, Seiten, Unterseiten, Tags, Bildern, Anhängen und Handschrift. Die Reihenfolge der Abschnitts-Tabs gibt Microsoft nicht heraus; RESCOOL ordnet nach Erstelldatum. Ohne Microsoft 365: Export aus OneNote als Word, .mht oder PDF und Datei-Import.
+- Für Tests ohne Microsoft: `ONENOTE_TEST=1` (nie in Produktion) liefert Beispieldaten.

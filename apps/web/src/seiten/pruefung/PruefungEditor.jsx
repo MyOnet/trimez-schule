@@ -84,7 +84,7 @@ function Editor({ d, neu }) {
             <label>Dauer<input inputMode="numeric" value={p.dauer_min || ""} onChange={(e) => setP({ ...p, dauer_min: e.target.value })} onBlur={(e) => kopfSpeichern({ dauer_min: e.target.value })} style={{ width: 70 }} />Min.</label>
             <label>Notenschlüssel<select value={p.notenschluessel_id || ""} onChange={(e) => kopfSpeichern({ notenschluessel_id: e.target.value || null })}><option value="">keiner</option>{p.schluessel.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
             <span className="pmeta-punkte"><b>{fmtP(punkte)}</b> Punkte</span>
-            <button type="button" className={"chip" + (p.einstellungen?.modus === "lernumgebung" ? " gruen" : "")} onClick={() => setEinst(true)} style={{ border: 0, cursor: "pointer" }}>{p.einstellungen?.modus === "lernumgebung" ? "Lernumgebung" : "Im Browser"}{p.einstellungen?.rechner ? ", Rechner" : ""}{p.einstellungen?.seiten?.length ? `, ${p.einstellungen.seiten.length} Seiten` : ""}</button>
+            <button type="button" className={"chip" + (p.einstellungen?.modus === "lernumgebung" ? " gruen" : "")} onClick={() => setEinst(true)} style={{ border: 0, cursor: "pointer" }}>{p.einstellungen?.modus === "lernumgebung" ? "Lernumgebung" : "Im Browser"}{p.einstellungen?.rechner ? ", Rechner" : ""}{p.einstellungen?.notizbuch ? ", Notizbuch" : ""}{p.einstellungen?.seiten?.length ? `, ${p.einstellungen.seiten.length} Seiten` : ""}</button>
           </div>
         </div>
         <div className="reihe">
@@ -232,11 +232,12 @@ function Einstellungen({ offen, zu, p, speichern }) {
           <button type="button" role="radio" aria-checked={e.modus !== "lernumgebung"} aria-pressed={e.modus !== "lernumgebung"} onClick={() => setE({ ...e, modus: "browser" })}>Im Browser</button>
           <button type="button" role="radio" aria-checked={e.modus === "lernumgebung"} aria-pressed={e.modus === "lernumgebung"} onClick={() => setE({ ...e, modus: "lernumgebung" })}>Nur in der Lernumgebung</button>
         </div>
-        <p className="leise klein">{e.modus === "lernumgebung" ? "Die Klasse braucht die trimez. Lernumgebung. Der Laptop ist während der Prüfung gesperrt; nur die erlaubten Hilfsmittel sind offen." : "Für Übungen und Tests ohne Sperre. Das Verlassen des Fensters wird gemeldet, aber nicht verhindert."} <Link to={`/s/${kurz}/lernumgebung`}>Mehr zur Lernumgebung</Link></p>
+        <p className="leise klein">{e.modus === "lernumgebung" ? "Die Klasse braucht die RESCOOL Lernumgebung. Der Laptop ist während der Prüfung gesperrt; nur die erlaubten Hilfsmittel sind offen." : "Für Übungen und Tests ohne Sperre. Das Verlassen des Fensters wird gemeldet, aber nicht verhindert."} <Link to={`/s/${kurz}/lernumgebung`}>Mehr zur Lernumgebung</Link></p>
       </section>
       <section className="stapel" style={{ gap: 8 }}>
         <b>Erlaubte Hilfsmittel</b>
         <label className="check"><input type="checkbox" checked={!!e.rechner} onChange={(x) => setE({ ...e, rechner: x.target.checked })} style={{ width: "auto", minHeight: 0 }} />Taschenrechner (wissenschaftlich, eingebaut)</label>
+        <label className="check"><input type="checkbox" checked={!!e.notizbuch} onChange={(x) => setE({ ...e, notizbuch: x.target.checked })} style={{ width: "auto", minHeight: 0 }} />Kursnotizbuch (nur Bibliothek und eigener Bereich, ohne Zusammenarbeit)</label>
         {seiten.length > 0 && <div className="liste-kompakt">{seiten.map((x, k) => <div key={x.url}><span><b>{x.titel}</b> <span className="leise klein">{x.url}</span></span><button type="button" className="knopf leise-knopf klein-knopf" onClick={() => setE({ ...e, seiten: seiten.filter((_, i) => i !== k) })}>Entfernen</button></div>)}</div>}
         <div className="seite-neu">
           <input value={neu.titel} onChange={(x) => setNeu({ ...neu, titel: x.target.value })} placeholder="Name, z. B. Duden" aria-label="Name der Seite" />

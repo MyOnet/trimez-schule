@@ -97,7 +97,7 @@ export default async function (app) {
     const [schule] = await q("SELECT id, kurzname, name, kanton, typ FROM schule");
     const [k] = await q("SELECT totp_aktiv FROM konto WHERE person_id = $1 AND art = 'lokal'", [req.ctx.personId]);
     const pflicht = req.sitzung.via === "lokal" && zweiterFaktorPflicht(req.ctx) && !(k && k.totp_aktiv);
-    return { person: req.ctx.person, rollen: [...req.ctx.rollen], schule, via: req.sitzung.via, zweiterFaktor: { aktiv: !!(k && k.totp_aktiv), einrichtenPflicht: pflicht, lokalesKonto: !!k } };
+    return { person: req.ctx.person, rollen: [...req.ctx.rollen], unterrichtet: !!(req.ctx.lehrt && req.ctx.lehrt.size), schule, via: req.sitzung.via, zweiterFaktor: { aktiv: !!(k && k.totp_aktiv), einrichtenPflicht: pflicht, lokalesKonto: !!k } };
   }, { konto: true }));
 
   // ---------- Zwei-Faktor einrichten ----------
@@ -108,7 +108,7 @@ export default async function (app) {
     const geheim = authenticator.generateSecret(20);
     await q("UPDATE konto SET totp_geheimnis = $1 WHERE id = $2", [verschluesseln(geheim), k.id]);
     const [sch] = await q("SELECT name FROM schule");
-    const uri = authenticator.keyuri(req.ctx.person.email || req.ctx.person.nachname, `trimez. Schule (${sch.name})`, geheim);
+    const uri = authenticator.keyuri(req.ctx.person.email || req.ctx.person.nachname, `RESCOOL (${sch.name})`, geheim);
     return { geheim, qr: await QRCode.toString(uri, { type: "svg", margin: 1 }) };
   }, { konto: true }));
 
@@ -123,7 +123,7 @@ export default async function (app) {
 
   app.post("/api/konto/passwort", geschuetzt(async (req, res, q) => {
     const [k] = await q("SELECT * FROM konto WHERE person_id = $1 AND art = 'lokal'", [req.ctx.personId]);
-    if (!k) fehler(400, "Sie haben kein eigenes Passwort bei trimez. Schule.");
+    if (!k) fehler(400, "Sie haben kein eigenes Passwort bei RESCOOL.");
     if (!(await argonVerify(k.passwort_hash, String(req.body && req.body.alt || "")).catch(() => false))) fehler(400, "Das bisherige Passwort stimmt nicht.", "alt");
     const neu = gueltig(Passwort, req.body && req.body.neu);
     await q("UPDATE konto SET passwort_hash = $1 WHERE id = $2", [await passwortHash(neu), k.id]);

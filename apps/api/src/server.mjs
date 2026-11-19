@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-// trimez. Schule: Server
+// RESCOOL: Server
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
@@ -46,6 +46,8 @@ export async function bauen({ log = false } = {}) {
   await app.register((await import("./routes/pruefungen.mjs")).default);
   await app.register((await import("./routes/durchfuehrung.mjs")).default);
   await app.register((await import("./routes/lektionen.mjs")).default);
+  await app.register((await import("./routes/notizbuch.mjs")).default);
+  await app.register((await import("./routes/onenote.mjs")).default);
 
   // Oberfläche (gebaut mit Vite) ausliefern; alle anderen Pfade → index.html
   const web = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");

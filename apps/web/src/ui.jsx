@@ -90,13 +90,18 @@ export const Symbol = {
   anhalten: () => <svg viewBox="0 0 24 24" {...P}><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>,
   senden: () => <svg viewBox="0 0 24 24" {...P}><path d="M4 12l16-7-6 16-3-6.5z" /><path d="M11 14.5L20 5" /></svg>,
   menu: () => <svg viewBox="0 0 24 24" {...P} width="22" height="22"><path d="M4 7h16M4 12h16M4 17h16" /></svg>,
+  notizbuch: () => <svg viewBox="0 0 24 24" {...P}><path d="M6 3.5h11a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6z" /><path d="M6 3.5v17M3.5 7.5H6M3.5 12H6M3.5 16.5H6M10 8h5.5M10 11.5h4" /></svg>,
 };
 
+// RESCOOL-Zeichen: ein «R» in Königsblau, darunter ein Strich Leuchtmarker
 export const Marke = ({ gross }) => (
   <svg width={gross ? 40 : 32} height={gross ? 40 : 32} viewBox="0 0 32 32" aria-hidden="true">
-    <rect width="32" height="32" rx="8" fill="var(--gruen)" /><path d="M9 22V10h14" stroke="#F6F7F4" strokeWidth="3.2" fill="none" strokeLinecap="round" /><circle cx="22" cy="21" r="2.4" fill="var(--gelb)" />
+    <rect width="32" height="32" rx="9" fill="#2C3FC4" />
+    <path d="M7.5 23.5c5-1.3 12-1.7 17.5-.9" stroke="#FFE14D" strokeWidth="4.2" strokeLinecap="round" fill="none" />
+    <path d="M11 21V9h5.6a3.9 3.9 0 0 1 0 7.8H11m5.2 0L20.8 21" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </svg>
 );
+export const Wortmarke = () => <span className="wortmarke"><Marke />RESCOOL</span>;
 
 /* ---------- Noten-Anzeige ---------- */
 export function Note({ wert, gross, titel }) {

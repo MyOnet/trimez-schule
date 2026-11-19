@@ -127,7 +127,7 @@ fn gesperrt_anzeigen(app: tauri::AppHandle, tab: String, adresse: String) {
         // Nur wenn noch nichts geladen ist: Eine gesperrte Weiterleitung aus einer geladenen Seite (z. B. Werbung) lässt die Seite stehen
         if w.url().map(|u| u.as_str() != "about:blank").unwrap_or(true) { return; }
         let text = serde_json::to_string(&adresse).unwrap_or_else(|_| "\"\"".into());
-        let html = "<meta charset=utf-8><body style=\"font:16px system-ui,sans-serif;margin:48px;color:#1d2a24\"><h2>Diese Seite ist nicht freigegeben</h2><p>Die Lehrperson hat sie nicht erlaubt. Mit «trimez.» oben links geht es zurück.</p><p id=a style=\"color:#667;word-break:break-all\"></p></body>";
+        let html = "<meta charset=utf-8><body style=\"font:16px system-ui,sans-serif;margin:48px;color:#1d2a24\"><h2>Diese Seite ist nicht freigegeben</h2><p>Die Lehrperson hat sie nicht erlaubt. Mit «RESCOOL» oben links geht es zurück.</p><p id=a style=\"color:#667;word-break:break-all\"></p></body>";
         let _ = w.eval(format!("document.open();document.write({});document.close();document.getElementById('a').textContent={};", serde_json::to_string(html).unwrap_or_default(), text));
     });
 }
@@ -301,7 +301,7 @@ fn main() {
             let start: url::Url = format!("{}/", eigene_herkunft()).parse().expect("Startadresse");
             let pruef = app.handle().clone();
             let fenster = WebviewWindowBuilder::new(app, "haupt", WebviewUrl::CustomProtocol(start))
-                .title("trimez. Lernumgebung")
+                .title("RESCOOL Lernumgebung")
                 .fullscreen(true)
                 .decorations(false)
                 .always_on_top(true)

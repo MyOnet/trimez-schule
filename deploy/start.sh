@@ -22,5 +22,5 @@ export DATABASE_URL="postgres://schule_app:container-app@127.0.0.1/schule"
 node packages/db/migrate.mjs
 node packages/db/seed.mjs
 
-echo "trimez. Schule (Test) startet auf Port ${PORT:=10000}"
+echo "RESCOOL (Test) startet auf Port ${PORT:=10000}"
 exec node apps/api/src/server.mjs

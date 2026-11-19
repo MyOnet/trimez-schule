@@ -56,16 +56,17 @@ export default function LektionSchueler() {
 
     {d.beendet ? <div className="leer"><b>Die Lektion ist beendet</b><span>Das Material der Klasse finden Sie weiterhin unter Material.</span>
       <div className="reihe"><Link className="knopf" to={`/s/${kurz}/unterricht/${d.unterricht_id}/material`}>Zum Material</Link>{LU && <button className="knopf" onClick={() => LU.beenden().catch((x) => alert(String(x)))}>Lernumgebung schliessen</button>}</div></div> : <>
-      {d.lernumgebung.pflicht && !LU && <div className="hinweis" style={{ marginBottom: 18 }}><span><b>Ihre Lehrperson möchte, dass Sie die Lernumgebung verwenden.</b> Öffnen Sie die App «trimez. Lernumgebung» und melden Sie sich dort an. <Link to={`/s/${kurz}/lernumgebung`}>So geht es</Link></span></div>}
+      {d.lernumgebung.pflicht && !LU && <div className="hinweis" style={{ marginBottom: 18 }}><span><b>Ihre Lehrperson möchte, dass Sie die Lernumgebung verwenden.</b> Öffnen Sie die App «RESCOOL Lernumgebung» und melden Sie sich dort an. <Link to={`/s/${kurz}/lernumgebung`}>So geht es</Link></span></div>}
 
       {d.anstoss ? <Anstoss a={d.anstoss} seiteOeffnen={seiteOeffnen} /> :
         <div className="lk-warten"><Symbol.lektion /><div><b>Noch nichts gezeigt</b><span>Wenn Ihre Lehrperson etwas an alle sendet, erscheint es hier.</span></div></div>}
 
-      {(d.rechner || d.seiten.length > 0) && <section className="abschnitt">
+      {(d.rechner || d.notizbuch || d.seiten.length > 0) && <section className="abschnitt">
         <div className="abschnitt-kopf"><h2>Erlaubt in dieser Lektion</h2></div>
         <div className="lk-erlaubt">
           {d.seiten.map((s) => <button key={s.url} className="lk-seite" onClick={() => seiteOeffnen(s.url)}><Symbol.oeffnen /><span><b>{s.titel}</b><small>{s.url.replace(/^https:\/\//, "")}</small></span></button>)}
           {d.rechner && <button className="lk-seite" aria-pressed={rechner} onClick={() => setRechner(!rechner)}><Symbol.plus /><span><b>Taschenrechner</b><small>wissenschaftlich</small></span></button>}
+          {d.notizbuch && <Link className="lk-seite" to={`/s/${kurz}/notizbuch/${d.unterricht_id}`}><Symbol.notizbuch /><span><b>Kursnotizbuch</b><small>{d.fach} {d.klasse}</small></span></Link>}
         </div>
       </section>}
 

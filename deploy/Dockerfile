@@ -1,4 +1,4 @@
-# Testserver in einem einzigen Container: PostgreSQL und trimez. Schule zusammen.
+# Testserver in einem einzigen Container: PostgreSQL und RESCOOL zusammen.
 # Für Tests (z. B. Render, Gratis-Stufe): Die Daten werden bei jedem Start neu angelegt (Testschule «seeufer»).
 # Nicht für echte Schulen: dafür eine eigene Datenbank mit Sicherungen (siehe docs/01-architektur.md).
 

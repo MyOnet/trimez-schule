@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useParams, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { api } from "./api.js";
-import { MeldungAnbieter, Symbol, Marke, initialen } from "./ui.jsx";
+import { MeldungAnbieter, Symbol, Marke, Wortmarke, initialen } from "./ui.jsx";
 import { TEXTE } from "@schule/shared";
 import Anmelden from "./seiten/Anmelden.jsx";
 import ZweiterFaktor from "./seiten/ZweiterFaktor.jsx";
@@ -31,6 +31,10 @@ import Ergebnis from "./seiten/pruefung/Ergebnis.jsx";
 import LernumgebungSeite from "./seiten/Lernumgebung.jsx";
 import Lektion from "./seiten/Lektion.jsx";
 import LektionSchueler from "./seiten/LektionSchueler.jsx";
+import { lazy, Suspense } from "react";
+const Notizbuecher = lazy(() => import("./notizbuch/Notizbuecher.jsx"));
+const NotizbuchSeite = lazy(() => import("./notizbuch/Notizbuch.jsx"));
+const Spaeter = ({ children }) => <Suspense fallback={<p className="leise">Wird geladen …</p>}>{children}</Suspense>;
 
 const N = TEXTE.nav;
 const IchCtx = createContext(null);
@@ -59,7 +63,10 @@ function Bereich() {
   const abmelden = async () => { await api("/api/abmelden", { methode: "POST" }).catch(() => {}); nav(`/s/${kurz}/anmelden`); };
   const verwalten = rechte["klasse.verwalten"];
   const schueler = ich.rollen.includes("schueler") && ich.rollen.length === 1;
+  const voll = /\/notizbuch\/[0-9a-f-]{36}/.test(ort.pathname);
+  const eingebettet = new URLSearchParams(ort.search).get("eingebettet") === "1";
   const breit = /\/(noten|umwandlung\/[^/]+)$/.test(ort.pathname) || /\/pruefungen\/[^/]+(\/(aufsicht|korrektur))?$/.test(ort.pathname);
+  if (eingebettet) return <IchCtx.Provider value={{ ...ich, rechte, neu: laden }}><main className="haupt voll eingebettet"><Outlet /></main></IchCtx.Provider>;
   return (
     <IchCtx.Provider value={{ ...ich, rechte, neu: laden }}>
       <div className="mobil-kopf">
@@ -69,14 +76,16 @@ function Bereich() {
       {menu && <div className="nav-schleier" onClick={() => setMenu(false)} aria-hidden="true" />}
       <div className="geruest">
         <nav className={"tafel" + (menu ? " offen" : "")} aria-label="Hauptnavigation">
-          <div className="marke"><span className="wappen"><Marke /></span><div><b>{ich.schule.name.replace(/ \(Testschule\)$/, "")}</b><small>{TEXTE.produkt}</small></div></div>
+          <div className="marke"><Wortmarke /><span className="schule-name">{ich.schule.name.replace(/ \(Testschule\)$/, "")}</span></div>
           {!ich.zweiterFaktor.einrichtenPflicht && <>
             {L(`${b}/`, N.start, Symbol.start, true)}
             {schueler ? <>
-              {L(`${b}/meine-noten`, "Meine Noten", Symbol.noten)}
+              {L(`${b}/notizbuch`, "Notizbücher", Symbol.notizbuch)}
               {L(`${b}/material`, "Material", Symbol.material)}
+              {L(`${b}/meine-noten`, "Meine Noten", Symbol.noten)}
               {L(`${b}/lernumgebung`, "Lernumgebung", Symbol.unterricht)}
             </> : <>
+              {ich.unterrichtet && L(`${b}/notizbuch`, "Notizbücher", Symbol.notizbuch)}
               {rechte["material.erstellen"] && L(`${b}/material`, "Material", Symbol.material)}
               {rechte["pruefung.verwalten"] && L(`${b}/pruefungen`, "Prüfungen", Symbol.pruefung)}
               {L(`${b}/klassen`, N.klassen, Symbol.klasse)}
@@ -97,7 +106,7 @@ function Bereich() {
             <button className="nav-link" onClick={abmelden}><Symbol.aus />{N.abmelden}</button>
           </div>
         </nav>
-        <main className={"haupt" + (breit ? " breit" : "")} id="inhalt">{schueler && <LektionImHintergrund kurz={kurz} />}<Outlet /></main>
+        <main className={"haupt" + (breit ? " breit" : "") + (voll ? " voll" : "")} id="inhalt">{schueler && <LektionImHintergrund kurz={kurz} />}<Outlet /></main>
       </div>
     </IchCtx.Provider>
   );
@@ -133,7 +142,7 @@ function LektionImHintergrund({ kurz }) {
 }
 
 // In der Lernumgebung: erlaubte Seiten als Tabs. Die App zeigt die fremde Seite unter dieser Leiste an,
-// der Tab «trimez.» blendet sie aus. Nur erlaubte Seiten lassen sich öffnen (die App prüft jede Adresse).
+// der Tab «RESCOOL» blendet sie aus. Nur erlaubte Seiten lassen sich öffnen (die App prüft jede Adresse).
 function LernumgebungTabs() {
   const lu = typeof window !== "undefined" ? window.trimezLernumgebung : undefined;
   const [st, setSt] = useState({ tabs: [], aktiv: null });
@@ -150,7 +159,7 @@ function LernumgebungTabs() {
   const name = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname.replace(/\/$/, "")).slice(0, 40); } catch { return u; } };
   const tun = (p) => p.then(setSt).catch((x) => alert(String(x)));
   return <nav className="lu-tabs" aria-label="Geöffnete Seiten">
-    <button className={"lu-tab" + (!st.aktiv ? " aktiv" : "")} onClick={() => tun(lu.tabZeigen(null))}>trimez.</button>
+    <button className={"lu-tab" + (!st.aktiv ? " aktiv" : "")} onClick={() => tun(lu.tabZeigen(null))}>RESCOOL</button>
     {st.tabs.map((t) => <span key={t.id} className={"lu-tab" + (st.aktiv === t.id ? " aktiv" : "")}>
       <button onClick={() => tun(lu.tabZeigen(t.id))} title={t.url}>{name(t.url)}</button>
       <button className="lu-tab-zu" aria-label={`${name(t.url)} schliessen`} onClick={() => tun(lu.tabSchliessen(t.id))}>×</button>
@@ -200,6 +209,8 @@ export default function App() {
             <Route path="pruefungen/:pid/korrektur" element={<Korrektur />} />
             <Route path="ergebnis/:vid" element={<Ergebnis />} />
             <Route path="lernumgebung" element={<LernumgebungSeite />} />
+            <Route path="notizbuch" element={<Spaeter><Notizbuecher /></Spaeter>} />
+            <Route path="notizbuch/:uid" element={<Spaeter><NotizbuchSeite /></Spaeter>} />
             <Route path="import" element={<Import />} />
             <Route path="protokoll" element={<Protokoll />} />
             <Route path="konto" element={<Konto />} />
@@ -240,12 +251,12 @@ function Start() {
 export function AnmeldeTafel({ schule }) {
   return (
     <aside className="anmelde-tafel">
-      <div className="reihe" style={{ gap: 12 }}><span className="wappen"><Marke /></span><b style={{ fontFamily: "var(--titel)", fontSize: "1.05rem" }}>{TEXTE.produkt}</b></div>
+      <div className="reihe" style={{ gap: 12, color: "#fff" }}><span className="wortmarke" style={{ color: "#fff" }}><Marke />RESCOOL</span></div>
       <div className="stapel" style={{ gap: 18 }}>
-        <p className="gross">Noten, Material und Prüfungen. <em>An einem Ort.</em></p>
+        <p className="gross">Notizen, Material, Noten und Prüfungen. <em>An einem Ort.</em></p>
         <p>{schule ? `${schule.name.replace(/ \(Testschule\)$/, "")}.` : "Für Gymnasien in der Schweiz."} Daten in der Schweiz, Zugriff nur für Berechtigte, jede Änderung nachvollziehbar.</p>
       </div>
-      <p className="unten klein" style={{ color: "var(--kreide3)" }}>trimez. Schule, ein Produkt von trimez.</p>
+      <p className="unten klein" style={{ color: "#97A2CC" }}>RESCOOL</p>
     </aside>
   );
 }

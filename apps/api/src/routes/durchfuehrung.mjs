@@ -64,7 +64,7 @@ async function luSperre(q, req, res, p, v) {
   if (!brauchtLu(p, v)) return null;
   const lu = req.lu;
   let grund = null;
-  if (!lu) grund = "Diese Prüfung kann nur in der trimez. Lernumgebung geschrieben werden.";
+  if (!lu) grund = "Diese Prüfung kann nur in der RESCOOL Lernumgebung geschrieben werden.";
   else if (!lu.gueltig) grund = `Die Lernumgebung wurde nicht erkannt (${lu.grund}). Bitte die aktuelle Version installieren.`;
   else if (!lu.gesperrt) grund = "Die Lernumgebung ist nicht gesperrt. Bitte neu starten.";
   // Windows: Prüfungen nur auf dem eigenen Desktop der Lernumgebung (wie Safe Exam Browser); abschaltbar für Notfälle
@@ -80,7 +80,7 @@ async function luSperre(q, req, res, p, v) {
 }
 const metaFuerSchueler = (p) => ({ id: p.id, titel: p.titel, fach: p.fach, klasse: p.klasse, datum: p.datum, dauer_min: p.dauer_min, status: p.status,
   einstellungen: { hinweise: p.einstellungen.hinweise, hilfsmittel: p.einstellungen.hilfsmittel, rueckwaerts: p.einstellungen.rueckwaerts !== false,
-    rechner: !!p.einstellungen.rechner, seiten: p.einstellungen.seiten || [], modus: p.einstellungen.modus === "lernumgebung" ? "lernumgebung" : "browser" } });
+    rechner: !!p.einstellungen.rechner, notizbuch: !!p.einstellungen.notizbuch, unterricht_id: p.unterricht_id, seiten: p.einstellungen.seiten || [], modus: p.einstellungen.modus === "lernumgebung" ? "lernumgebung" : "browser" } });
 const quittung = (v, n) => ({ abgegeben_am: v.abgegeben_am, abgabe_art: v.abgabe_art, hash: v.abgabe_hash, beantwortet: beantwortet(v), aufgaben: n });
 
 // Reihenfolge nicht verändert = die angezeigte (gemischte) Reihenfolge gilt als Antwort, wie auf dem Bildschirm

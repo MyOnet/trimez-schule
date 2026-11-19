@@ -15,7 +15,7 @@ export const AKTIONEN = [
   "noten.lesen", "noten.schreiben", "noten.eigene",
   "material.erstellen", "material.lesen", "material.bearbeiten", "material.freigeben",
   "pruefung.verwalten", "aufgabe.lesen", "aufgabe.bearbeiten",
-  "lektion.leiten", "lektion.teilnehmen",
+  "lektion.leiten", "lektion.teilnehmen", "notizbuch.leiten", "notizbuch.teilnehmen",
 ];
 
 const hat = (ctx, r) => ctx.rollen.has(r);
@@ -74,6 +74,10 @@ export function darf(ctx, aktion, objekt = {}) {
     // Unterrichtsmodus: die Lehrperson leitet Lektionen im eigenen Unterricht; Schüler/innen nehmen an ihrem Unterricht teil
     case "lektion.leiten": return lp && !!objekt.unterrichtId && !!ctx.lehrt && ctx.lehrt.has(objekt.unterrichtId);
     case "lektion.teilnehmen": return sch && !!objekt.unterrichtId && ctx.unterricht.has(objekt.unterrichtId);
+    // Kursnotizbuch: die Lehrperson im eigenen Unterricht (immer), Schüler/innen in ihrem Unterricht (wenn erlaubt; das prüft der Server).
+    // Die Administration und die Schulleitung sehen keine Notizen.
+    case "notizbuch.leiten": return lp && !!objekt.unterrichtId && !!ctx.lehrt && ctx.lehrt.has(objekt.unterrichtId);
+    case "notizbuch.teilnehmen": return sch && !!objekt.unterrichtId && ctx.unterricht.has(objekt.unterrichtId);
     default: return false;
   }
 }

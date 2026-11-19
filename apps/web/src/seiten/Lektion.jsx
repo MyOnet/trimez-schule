@@ -54,7 +54,7 @@ export function SeitenListe({ seiten, setSeiten, onEntwurf }) {
   return <div className="stapel" style={{ gap: 10 }}>
     {seiten.length ? <ul className="lk-seiten">{seiten.map((s) => <li key={s.url}><div><b>{s.titel}</b><span>{s.url.replace(/^https:\/\//, "")}</span></div>
       <button type="button" className="knopf leise-knopf klein-knopf" onClick={() => setSeiten(seiten.filter((x) => x.url !== s.url))} aria-label={`${s.titel} entfernen`}><Symbol.schliessen /></button></li>)}</ul>
-      : <p className="leise klein" style={{ margin: 0 }}>Noch keine. Ohne erlaubte Seiten zeigt die Lernumgebung nur trimez. (Material, Aufträge).</p>}
+      : <p className="leise klein" style={{ margin: 0 }}>Noch keine. Ohne erlaubte Seiten zeigt die Lernumgebung nur RESCOOL (Material, Aufträge).</p>}
     <form className="lk-seite-neu" onSubmit={dazu}>
       <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="www.duden.de" aria-label="Adresse" aria-invalid={!!f} />
       <input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Name (optional)" aria-label="Name der Seite" maxLength={80} />
@@ -68,10 +68,11 @@ export function SeitenListe({ seiten, setSeiten, onEntwurf }) {
 /* ---------- Noch keine Lektion ---------- */
 function Starten({ uid, vorlage, klasse, gestartet }) {
   const [seiten, setSeiten] = useState(vorlage.seiten || []); const [rechner, setRechner] = useState(!!vorlage.rechner); const [lu, setLu] = useState(!!vorlage.lernumgebung);
+  const [nb, setNb] = useState(vorlage.notizbuch !== false);
   const [laeuft, setLaeuft] = useState(false); const [entwurf, setEntwurf] = useState(null); const meld = useMeldung();
   const starten = async () => {
     setLaeuft(true);
-    try { await api(`/api/unterricht/${uid}/lektion`, { methode: "POST", daten: { seiten: mitEntwurf(seiten, entwurf), rechner, lernumgebung: lu } }); }
+    try { await api(`/api/unterricht/${uid}/lektion`, { methode: "POST", daten: { seiten: mitEntwurf(seiten, entwurf), rechner, lernumgebung: lu, notizbuch: nb } }); }
     catch (x) { if (x.status !== 409) { meld(x.message, true); setLaeuft(false); return; } }
     gestartet();
   };
@@ -88,6 +89,7 @@ function Starten({ uid, vorlage, klasse, gestartet }) {
         <SeitenListe seiten={seiten} setSeiten={setSeiten} onEntwurf={setEntwurf} />
       </section>
       <label className="haken"><input type="checkbox" checked={rechner} onChange={(e) => setRechner(e.target.checked)} /><span><b>Taschenrechner</b><small>Wissenschaftlicher Rechner auf der Lektionsseite</small></span></label>
+      <label className="haken"><input type="checkbox" checked={nb} onChange={(e) => setNb(e.target.checked)} /><span><b>Kursnotizbuch</b><small>Die Klasse kann das Notizbuch dieses Fachs öffnen. Alle anderen Notizbücher sind während der Lektion zu.</small></span></label>
       <label className="haken"><input type="checkbox" checked={lu} onChange={(e) => setLu(e.target.checked)} /><span><b>Lernumgebung verlangen</b><small>Wer im Browser ist, wird markiert und sieht einen Hinweis, die Lernumgebung zu öffnen.</small></span></label>
       <div className="reihe" style={{ justifyContent: "flex-end" }}><button className="knopf haupt-knopf gross-knopf" onClick={starten} disabled={laeuft}>Lektion starten</button></div>
     </div>
@@ -123,7 +125,7 @@ function Laufend({ lid, uid, kurz, beendet }) {
           <Symbol.anhalten />{l.angehalten ? "Bildschirme freigeben" : "Bildschirme anhalten"}</button>
         <button className="knopf" onClick={() => setSenden(true)}><Symbol.senden />An alle senden</button>
         <button className="knopf" onClick={() => setSeitenOffen(true)}><Symbol.link />Seiten ({l.seiten.length})</button>
-        <button className="knopf lk-ende" onClick={() => { if (confirm("Lektion beenden? Die Lernumgebung zeigt danach wieder alles von trimez., die erlaubten Seiten sind zu.")) tun(async () => { await api(`/api/lektionen/${lid}/beenden`, { methode: "POST" }); beendet(); }, "Lektion beendet."); }}>Beenden</button>
+        <button className="knopf lk-ende" onClick={() => { if (confirm("Lektion beenden? Die Lernumgebung zeigt danach wieder alles von RESCOOL, die erlaubten Seiten sind zu.")) tun(async () => { await api(`/api/lektionen/${lid}/beenden`, { methode: "POST" }); beendet(); }, "Lektion beendet."); }}>Beenden</button>
       </div>
     </div>
 
@@ -159,14 +161,16 @@ function Laufend({ lid, uid, kurz, beendet }) {
 
 function SeitenDialog({ offen, zu, l, speichern }) {
   const [seiten, setSeiten] = useState(l.seiten); const [rechner, setRechner] = useState(l.rechner); const [lu, setLu] = useState(l.lernumgebung);
+  const [nb, setNb] = useState(l.notizbuch !== false);
   const [entwurf, setEntwurf] = useState(null);
-  useEffect(() => { if (offen) { setSeiten(l.seiten); setRechner(l.rechner); setLu(l.lernumgebung); } }, [offen]);
+  useEffect(() => { if (offen) { setSeiten(l.seiten); setRechner(l.rechner); setLu(l.lernumgebung); setNb(l.notizbuch !== false); } }, [offen]);
   return <Dialog offen={offen} titel="Seiten und Werkzeuge" onZu={zu}>
     <div className="stapel" style={{ gap: 16 }}>
       <SeitenListe seiten={seiten} setSeiten={setSeiten} onEntwurf={setEntwurf} />
       <label className="haken"><input type="checkbox" checked={rechner} onChange={(e) => setRechner(e.target.checked)} /><span><b>Taschenrechner</b></span></label>
+      <label className="haken"><input type="checkbox" checked={nb} onChange={(e) => setNb(e.target.checked)} /><span><b>Kursnotizbuch</b></span></label>
       <label className="haken"><input type="checkbox" checked={lu} onChange={(e) => setLu(e.target.checked)} /><span><b>Lernumgebung verlangen</b></span></label>
-      <div className="reihe" style={{ justifyContent: "flex-end" }}><button className="knopf leise-knopf" onClick={zu}>Abbrechen</button><button className="knopf haupt-knopf" onClick={() => speichern({ seiten: mitEntwurf(seiten, entwurf), rechner, lernumgebung: lu })}>Speichern</button></div>
+      <div className="reihe" style={{ justifyContent: "flex-end" }}><button className="knopf leise-knopf" onClick={zu}>Abbrechen</button><button className="knopf haupt-knopf" onClick={() => speichern({ seiten: mitEntwurf(seiten, entwurf), rechner, lernumgebung: lu, notizbuch: nb })}>Speichern</button></div>
     </div>
   </Dialog>;
 }

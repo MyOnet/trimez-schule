@@ -28,22 +28,38 @@ export default function Uebersicht() {
 
           {lehrt.length > 0 && <section className="abschnitt" aria-labelledby="h-mein">
             <div className="abschnitt-kopf"><h2 id="h-mein">Mein Unterricht</h2><p>Schnitt der Klasse im laufenden Semester</p></div>
-            <div className="raster">
+            <div className="regal">
               {lehrt.map((u) => (
-                <Link key={u.id} to={`/s/${kurz}/unterricht/${u.id}/noten`} className="ukarte" style={{ "--farbe": u.farbe }}>
-                  <div className="oben">
-                    <div><div className="klasse">{u.klasse}{u.gruppe ? <span className="leise" style={{ fontSize: ".9rem" }}> {u.gruppe}</span> : null}</div><div className="fach">{u.fach}</div></div>
-                    <Note wert={u.klassenschnitt} gross titel="Schnitt der Klasse" />
+                <div key={u.id} className="heft">
+                  <Link to={`/s/${kurz}/notizbuch/${u.id}`} className="ukarte" style={{ "--farbe": u.farbe }} title={`Kursnotizbuch ${u.fach} ${u.klasse}`}>
+                    <div className="etikett-heft">
+                      <div className="oben">
+                        <div><div className="klasse">{u.klasse}{u.gruppe ? <span style={{ fontSize: ".9rem", color: "#6C7690" }}> {u.gruppe}</span> : null}</div><div className="fach">{u.fach}</div></div>
+                        <Note wert={u.klassenschnitt} gross titel="Schnitt der Klasse" />
+                      </div>
+                      <Verteilung v={u.verteilung} />
+                    </div>
+                    <div className="unten"><span>{u.schueler} Lernende</span><span>{u.bewertungen ? `${u.bewertungen} Bewertungen` : "noch keine Noten"}{u.entwuerfe ? `, ${u.entwuerfe} Entwurf` : ""}</span></div>
+                  </Link>
+                  <div className="heft-links">
+                    <Link to={`/s/${kurz}/notizbuch/${u.id}`}>Notizbuch</Link>
+                    <Link to={`/s/${kurz}/unterricht/${u.id}/noten`}>Noten</Link>
+                    <Link to={`/s/${kurz}/unterricht/${u.id}/material`}>Material</Link>
+                    <Link to={`/s/${kurz}/unterricht/${u.id}/lektion`}>Lektion</Link>
                   </div>
-                  <Verteilung v={u.verteilung} />
-                  <div className="unten"><span>{u.schueler} Lernende</span><span>{u.bewertungen ? `${u.bewertungen} Bewertungen` : "noch keine Noten"}{u.entwuerfe ? `, ${u.entwuerfe} Entwurf` : ""}</span></div>
-                </Link>))}
+                </div>))}
             </div>
           </section>}
 
           {schueler && <section className="abschnitt">
-            <div className="abschnitt-kopf"><h2>Meine Fächer</h2></div>
-            <div className="raster">{d.meinUnterricht.map((u) => <Link key={u.id} to={`/s/${kurz}/meine-noten`} className="ukarte" style={{ "--farbe": u.farbe }}><div className="klasse" style={{ fontSize: "1.25rem" }}>{u.fach}</div><span className="leise klein">Klasse {u.klasse}</span></Link>)}</div>
+            <div className="abschnitt-kopf"><h2>Meine Fächer</h2><p>Ein Klick öffnet das Kursnotizbuch</p></div>
+            <div className="regal">{d.meinUnterricht.map((u) => <div key={u.id} className="heft">
+              <Link to={`/s/${kurz}/notizbuch/${u.id}`} className="ukarte" style={{ "--farbe": u.farbe }}>
+                <div className="etikett-heft"><div className="klasse">{u.fach}</div><div className="fach">Klasse {u.klasse}</div></div>
+                <div className="unten"><span>Kursnotizbuch</span></div>
+              </Link>
+              <div className="heft-links"><Link to={`/s/${kurz}/material`}>Material</Link><Link to={`/s/${kurz}/meine-noten`}>Noten</Link></div>
+            </div>)}</div>
           </section>}
 
           {d.zahlen && <section className="abschnitt" aria-labelledby="h-zahlen">

@@ -1,4 +1,4 @@
-// Die trimez. Lernumgebung: was sie tut, Download, ob sie gerade erkannt wird
+// Die RESCOOL Lernumgebung: was sie tut, Download, ob sie gerade erkannt wird
 import { useLaden, Laden, Marke } from "../ui.jsx";
 import { useIch } from "../App.jsx";
 
@@ -32,7 +32,7 @@ export default function Lernumgebung() {
             <h2>Was während einer Prüfung passiert</h2>
             <ul className="lu-liste">
               <li><b>Vollbild.</b> Wechseln mit Alt+Tab, der Windows-Taste oder Cmd+Tab ist gesperrt, Taskleiste und Dock sind weg. Wer das Fenster trotzdem verlässt (z. B. mit Strg+Alt+Entf), wird zurückgeholt, und die Lehrperson sieht es.</li>
-              <li><b>Nur erlaubte Seiten.</b> trimez. und was die Lehrperson freigibt, z. B. Duden. Der eingebaute Taschenrechner, wenn erlaubt.</li>
+              <li><b>Nur erlaubte Seiten.</b> RESCOOL und was die Lehrperson freigibt, z. B. Duden. Der eingebaute Taschenrechner, wenn erlaubt.</li>
               <li><b>Keine Aufnahme unter Windows.</b> Bildschirmfotos und Aufnahmen zeigen das Prüfungsfenster nicht. Auf dem Mac folgt das mit Apples Prüfungsschnittstelle.</li>
               <li><b>Fernsteuerung und Chat werden beendet.</b> Zum Beispiel TeamViewer, AnyDesk, Discord. Die Lehrperson sieht, dass etwas beendet wurde.</li>
               <li><b>Beenden erst nach der Abgabe.</b> Danach ist der Laptop wieder ganz normal.</li>

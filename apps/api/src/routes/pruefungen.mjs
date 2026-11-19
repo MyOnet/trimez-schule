@@ -98,6 +98,7 @@ export default async function (app) {
       ...(b.einstellungen.mischen !== undefined ? { mischen: !!b.einstellungen.mischen } : {}),
       ...(b.einstellungen.modus !== undefined ? { modus: b.einstellungen.modus === "lernumgebung" ? "lernumgebung" : "browser" } : {}),
       ...(b.einstellungen.rechner !== undefined ? { rechner: !!b.einstellungen.rechner } : {}),
+      ...(b.einstellungen.notizbuch !== undefined ? { notizbuch: !!b.einstellungen.notizbuch } : {}),
       ...(b.einstellungen.seiten !== undefined ? { seiten: seitenLesen(b.einstellungen.seiten) } : {}) } : p.einstellungen;
     const schl = b.notenschluessel_id !== undefined ? (b.notenschluessel_id ? id(b.notenschluessel_id) : null) : p.notenschluessel_id;
     let status = p.status;

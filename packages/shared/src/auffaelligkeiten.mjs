@@ -1,6 +1,6 @@
 // Auffälligkeiten in einer Prüfung: Hinweise für die Aufsicht, keine Beweise.
 // Jede Regel hat harmlose Erklärungen (schnell tippen, gut vorbereitet, gleiche Quelle gelernt, WC-Pause).
-// Die Lehrperson entscheidet; trimez. bewertet nichts automatisch.
+// Die Lehrperson entscheidet; RESCOOL bewertet nichts automatisch.
 import { bewerten } from "./pruefung.mjs";
 
 export const GRENZEN = {

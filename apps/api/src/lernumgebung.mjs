@@ -1,4 +1,4 @@
-// Nachweis der trimez. Lernumgebung (die App für Prüfungen auf den Laptops).
+// Nachweis der RESCOOL Lernumgebung (die App für Prüfungen auf den Laptops).
 //
 // Die App schickt bei jeder Anfrage Kopfzeilen mit und unterschreibt sie mit dem Schlüssel ihrer Version (HMAC-SHA256):
 //   X-LU-Version   z. B. 1.0.0

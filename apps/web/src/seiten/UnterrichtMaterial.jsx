@@ -10,6 +10,7 @@ import { MaterialAnsicht } from "./MeinMaterial.jsx";
 export function UnterrichtReiter({ kurz, uid, notenbuch = true }) {
   return (
     <nav className="reiter" aria-label="Unterricht">
+      {notenbuch && <NavLink to={`/s/${kurz}/notizbuch/${uid}`}><Symbol.notizbuch />Notizbuch</NavLink>}
       {notenbuch && <NavLink to={`/s/${kurz}/unterricht/${uid}/noten`}><Symbol.noten />Notenbuch</NavLink>}
       {notenbuch && <NavLink to={`/s/${kurz}/unterricht/${uid}/lektion`}><Symbol.lektion />Lektion</NavLink>}
       <NavLink to={`/s/${kurz}/unterricht/${uid}/material`}><Symbol.material />Material</NavLink>

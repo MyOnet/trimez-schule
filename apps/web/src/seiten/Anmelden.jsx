@@ -48,7 +48,7 @@ export default function Anmelden() {
           </>}
         </>}
         {schritt === "code" && <form className="formular" onSubmit={senden}>
-          <p>Öffnen Sie Ihre Authenticator-App und geben Sie den 6-stelligen Code für trimez. Schule ein.</p>
+          <p>Öffnen Sie Ihre Authenticator-App und geben Sie den 6-stelligen Code für RESCOOL ein.</p>
           <label className="feld">{T.code}<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" value={f.code} onChange={set("code")} required autoFocus /></label>
           <button className="knopf haupt-knopf breit" disabled={busy}>{T.codeKnopf}</button>
         </form>}

@@ -21,7 +21,7 @@ const luKonfig = (l) => ({ pruefung: l.id, seiten: (l.seiten || []).map((x) => x
 const laeuft = (l) => !l.beendet_am && new Date(l.gestartet_am).getTime() > Date.now() - 6 * 3600_000;
 
 async function unterrichtLaden(q, uid) {
-  const [u] = await q(`SELECT u.id, u.gruppe, k.id AS klasse_id, k.name AS klasse, f.name AS fach, f.farbe FROM unterricht u
+  const [u] = await q(`SELECT u.id, u.gruppe, u.notizbuch, k.id AS klasse_id, k.name AS klasse, f.name AS fach, f.farbe FROM unterricht u
     JOIN klasse k ON k.id = u.klasse_id JOIN fach f ON f.id = u.fach_id WHERE u.id = $1`, [uid]);
   if (!u) fehler(404, "Unterricht nicht gefunden.");
   return u;
@@ -42,13 +42,14 @@ const offen = (l) => { if (!laeuft(l)) fehler(409, "Diese Lektion ist beendet.")
 
 const fuerLp = (l) => ({ id: l.id, unterricht_id: l.unterricht_id, fach: l.fach, farbe: l.farbe, klasse: l.klasse, gruppe: l.gruppe,
   gestartet_am: l.gestartet_am, beendet_am: l.beendet_am, laeuft: laeuft(l), lernumgebung: l.lernumgebung, rechner: l.rechner,
-  seiten: l.seiten, angehalten: l.angehalten, anstoss: l.anstoss });
+  seiten: l.seiten, angehalten: l.angehalten, anstoss: l.anstoss, notizbuch: l.notizbuch });
 
 function einstellungenLesen(b, l = {}) {
   const e = {};
   e.seiten = b.seiten !== undefined ? seitenLesen(b.seiten) : l.seiten || [];
   e.rechner = b.rechner !== undefined ? !!b.rechner : !!l.rechner;
   e.lernumgebung = b.lernumgebung !== undefined ? !!b.lernumgebung : !!l.lernumgebung;
+  e.notizbuch = b.notizbuch !== undefined ? !!b.notizbuch : l.notizbuch !== undefined ? !!l.notizbuch : true;
   return e;
 }
 
@@ -60,9 +61,9 @@ export default async function (app) {
     if (!darf(req.ctx, "lektion.leiten", { unterrichtId: uid })) fehler(404, "Unterricht nicht gefunden.");
     const u = await unterrichtLaden(q, uid);
     const [l] = await q(`SELECT l.id FROM lektion l WHERE l.unterricht_id = $1 AND ${LAUFEND}`, [uid]);
-    const [letzte] = await q("SELECT seiten, rechner, lernumgebung, gestartet_am FROM lektion WHERE unterricht_id = $1 ORDER BY gestartet_am DESC LIMIT 1", [uid]);
+    const [letzte] = await q("SELECT seiten, rechner, lernumgebung, notizbuch, gestartet_am FROM lektion WHERE unterricht_id = $1 ORDER BY gestartet_am DESC LIMIT 1", [uid]);
     return { unterricht: u, lektion: l ? fuerLp(await lektionLaden(q, l.id)) : null,
-      vorlage: letzte ? { seiten: letzte.seiten, rechner: letzte.rechner, lernumgebung: letzte.lernumgebung } : { seiten: [], rechner: false, lernumgebung: false } };
+      vorlage: letzte ? { seiten: letzte.seiten, rechner: letzte.rechner, lernumgebung: letzte.lernumgebung, notizbuch: letzte.notizbuch } : { seiten: [], rechner: false, lernumgebung: false, notizbuch: !!u.notizbuch } };
   }));
 
   app.post("/api/unterricht/:uid/lektion", geschuetzt(async (req, res, q) => {
@@ -74,8 +75,8 @@ export default async function (app) {
     const [schon] = await q(`SELECT l.id FROM lektion l WHERE l.unterricht_id = $1 AND ${LAUFEND}`, [uid]);
     if (schon) return res.status(409).send({ fehler: "In diesem Unterricht läuft schon eine Lektion.", lektion_id: schon.id });
     const e = einstellungenLesen(req.body || {});
-    const [l] = await q("INSERT INTO lektion (unterricht_id, gestartet_von, seiten, rechner, lernumgebung) VALUES ($1,$2,$3,$4,$5) RETURNING id",
-      [uid, req.ctx.personId, JSON.stringify(e.seiten), e.rechner, e.lernumgebung]);
+    const [l] = await q("INSERT INTO lektion (unterricht_id, gestartet_von, seiten, rechner, lernumgebung, notizbuch) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+      [uid, req.ctx.personId, JSON.stringify(e.seiten), e.rechner, e.lernumgebung, e.notizbuch]);
     await protokolliere(q, req, "lektion.gestartet", "lektion", l.id);
     return { lektion_id: l.id };
   }));
@@ -85,7 +86,7 @@ export default async function (app) {
     const b = req.body || {};
     const e = einstellungenLesen(b, l);
     const angehalten = b.angehalten !== undefined ? !!b.angehalten : l.angehalten;
-    await q("UPDATE lektion SET seiten = $1, rechner = $2, lernumgebung = $3, angehalten = $4 WHERE id = $5", [JSON.stringify(e.seiten), e.rechner, e.lernumgebung, angehalten, l.id]);
+    await q("UPDATE lektion SET seiten = $1, rechner = $2, lernumgebung = $3, angehalten = $4, notizbuch = $5 WHERE id = $6", [JSON.stringify(e.seiten), e.rechner, e.lernumgebung, angehalten, e.notizbuch, l.id]);
     return fuerLp(await lektionLaden(q, l.id));
   }));
 
@@ -162,7 +163,7 @@ export default async function (app) {
         [l.id, req.ctx.personId, modus, lu ? lu.plattform : null, lu ? lu.version : null, req.query.sichtbar !== "0", nr]);
     }
     const k = luKonfig(l);
-    return { ...kopf, beendet: false, seiten: l.seiten, rechner: l.rechner, angehalten: l.angehalten, anstoss: l.anstoss, modus,
+    return { ...kopf, beendet: false, seiten: l.seiten, rechner: l.rechner, notizbuch: l.notizbuch, angehalten: l.angehalten, anstoss: l.anstoss, modus,
       lernumgebung: { pflicht: l.lernumgebung, konfig: k, konfig_wert: konfigWert(k) }, jetzt: new Date() };
   }));
 

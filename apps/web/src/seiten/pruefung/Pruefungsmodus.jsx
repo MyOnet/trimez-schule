@@ -42,7 +42,7 @@ function Schreiben({ d, vid, neuLaden }) {
   const [abgeben, setAbgeben] = useState(false);
   const [verlassen, setVerlassen] = useState(false);
   const [pos, setPos] = useState(d.position || 0);
-  const [rechner, setRechner] = useState(false); const [hilfe, setHilfe] = useState(false);
+  const [rechner, setRechner] = useState(false); const [hilfe, setHilfe] = useState(false); const [notiz, setNotiz] = useState(false);
   const e = d.pruefung.einstellungen;
   const seiteOeffnen = (url) => { setHilfe(false); if (LU) LU.seiteOeffnen(url).catch((x) => alert(String(x))); else window.open(url, "_blank", "noopener"); };
   const einzeln = d.pruefung.einstellungen.rueckwaerts === false;
@@ -82,7 +82,8 @@ function Schreiben({ d, vid, neuLaden }) {
     let zuletzt = 0;
     const melden = (art) => { if (Date.now() - zuletzt < 5000) return; zuletzt = Date.now(); setVerlassen(true); api(`/api/versuche/${vid}/warnung`, { methode: "POST", daten: { art } }).catch(() => {}); };
     const sicht = () => { if (document.visibilityState === "hidden") melden("fokus"); };
-    const blur = () => melden("fokus");
+    // Wechsel ins eingebettete Notizbuch ist kein Verlassen
+    const blur = () => setTimeout(() => { const a = document.activeElement; if (a && a.tagName === "IFRAME" && a.closest(".pm-notizbuch")) return; melden("fokus"); }, 0);
     const online = () => { api(`/api/versuche/${vid}/warnung`, { methode: "POST", daten: { art: "offline", detail: "Verbindung war unterbrochen" } }).catch(() => {}); senden(); };
     const weg = (e) => { if (warte.current.length) { e.preventDefault(); e.returnValue = ""; } };
     document.addEventListener("visibilitychange", sicht); window.addEventListener("blur", blur); window.addEventListener("online", online); window.addEventListener("beforeunload", weg);
@@ -116,8 +117,9 @@ function Schreiben({ d, vid, neuLaden }) {
         {rest != null && <div className={"pm-zeit" + (rest < 5 * 60000 ? " knapp" : "")} role="timer" aria-live={rest < 60000 ? "assertive" : "off"} aria-label={`Noch ${min} Minuten`}>{String(min).padStart(2, "0")}:{String(sek).padStart(2, "0")}<small>verbleibend</small></div>}
         <div className="pm-status" aria-live="polite">{zustand.art === "offline" ? <span className="offline">Keine Verbindung. Ihre Antworten sind auf diesem Gerät gesichert und werden gesendet, sobald das Netz zurück ist.</span>
           : zustand.art === "fehler" ? <span className="offline">{zustand.text}</span> : zustand.art === "sendet" ? "Wird gespeichert …" : zustand.zeit ? `Gespeichert ${zustand.zeit.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Bereit"}</div>
-        {(e.rechner || (e.seiten && e.seiten.length > 0)) && <div className="pm-hilfe">
+        {(e.rechner || e.notizbuch || (e.seiten && e.seiten.length > 0)) && <div className="pm-hilfe">
           {e.rechner && <button className="knopf klein-knopf" onClick={() => setRechner(!rechner)} aria-pressed={rechner}>Taschenrechner</button>}
+          {e.notizbuch && <button className="knopf klein-knopf" onClick={() => setNotiz(!notiz)} aria-pressed={notiz}>Notizbuch</button>}
           {e.seiten && e.seiten.length > 0 && <><button className="knopf klein-knopf" onClick={() => setHilfe(!hilfe)} aria-expanded={hilfe}>Erlaubte Seiten</button>
             {hilfe && <div className="pm-seiten" role="menu">{e.seiten.map((x) => <button key={x.url} role="menuitem" onClick={() => seiteOeffnen(x.url)}><b>{x.titel}</b><span>{x.url.replace(/^https:\/\//, "")}</span></button>)}</div>}</>}
         </div>}
@@ -125,6 +127,10 @@ function Schreiben({ d, vid, neuLaden }) {
         <button className="knopf haupt-knopf" onClick={() => { senden(); setAbgeben(true); }}>Abgeben</button>
       </header>
       {rechner && <Taschenrechner zu={() => setRechner(false)} />}
+      {notiz && e.notizbuch && <div className="pm-notizbuch" role="dialog" aria-label="Kursnotizbuch">
+        <div className="pm-notizbuch-kopf"><b>Kursnotizbuch</b><button className="knopf klein-knopf" onClick={() => setNotiz(false)}>Schliessen</button></div>
+        <iframe src={`/s/${kurz}/notizbuch/${e.unterricht_id}?eingebettet=1`} title="Kursnotizbuch" />
+      </div>}
       {verlassen && <div className="pm-warnung" role="alert"><span>Sie haben das Prüfungsfenster verlassen. Das wird der Lehrperson angezeigt.</span><button className="knopf klein-knopf" onClick={() => setVerlassen(false)}>Verstanden</button></div>}
       <div className="pm-koerper">
         {!einzeln && <nav className="pm-navi" aria-label="Aufgaben">
@@ -197,7 +203,7 @@ function LernumgebungNoetig({ text, kurz }) {
         <h1 style={{ fontSize: "1.5rem" }}>Diese Prüfung braucht die Lernumgebung</h1>
         <p>{text}</p>
         <ol className="schritte">
-          <li>trimez. Lernumgebung installieren (einmalig, ohne Administratorrechte).</li>
+          <li>RESCOOL Lernumgebung installieren (einmalig, ohne Administratorrechte).</li>
           <li>Lernumgebung öffnen und mit Ihrem Konto anmelden.</li>
           <li>Auf der Übersicht den Code von der Tafel eingeben.</li>
         </ol>
