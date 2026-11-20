@@ -776,3 +776,17 @@
 .sheaf .page-title { min-height: 0; border-radius: 0; }
 .sheaf .tabs button { font-size: 14px; }
 .sheaf-portal input[type="checkbox"], .sheaf-portal input[type="radio"] { width: auto; min-height: 0; }
+
+/* Import: OneNote auf diesem Computer (Lernumgebung) */
+.sheaf-portal .imp-card.lok { margin-bottom: 12px; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.sheaf-portal .lok-baum { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 4px 0; background: var(--paper, #fff); }
+.sheaf-portal .lok-zeile { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; min-height: 32px; }
+.sheaf-portal .lok-zeile:hover { background: var(--hover); }
+.sheaf-portal .lok-zeile label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheaf-portal .lok-zeile input { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.sheaf-portal .lok-farbe { width: 4px; height: 18px; border-radius: 2px; flex: none; }
+.sheaf-portal .lok-zahl { color: var(--ink-3, var(--ink-2)); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheaf-portal .lok-pfeil { width: 24px; height: 24px; flex: none; display: inline-grid; place-items: center; }
+.sheaf-portal .lok-pfeil svg { width: 14px; height: 14px; transition: transform .15s var(--ease, ease); }
+.sheaf-portal .lok-pfeil.offen svg { transform: rotate(90deg); }
+.sheaf-portal .lok-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -4,5 +4,5 @@
   "description": "Nur die Seiten von trimez. (Webansicht «haupt») dürfen die Befehle der Lernumgebung aufrufen, die erlaubten fremden Seiten in den Tabs nicht",
   "webviews": ["haupt"],
   "remote": { "urls": ["trimez://*", "http://trimez.localhost/*"] },
-  "permissions": ["allow-lu-status", "allow-lu-seite-oeffnen", "allow-lu-tabs", "allow-lu-tab-zeigen", "allow-lu-tab-schliessen", "allow-lu-hilfsmittel-schliessen", "allow-lu-beenden", "allow-lu-notausgang", "allow-lu-server-setzen"]
+  "permissions": ["allow-lu-status", "allow-lu-seite-oeffnen", "allow-lu-tabs", "allow-lu-tab-zeigen", "allow-lu-tab-schliessen", "allow-lu-hilfsmittel-schliessen", "allow-lu-beenden", "allow-lu-notausgang", "allow-lu-server-setzen", "allow-lu-onenote-stand", "allow-lu-onenote-starten", "allow-lu-onenote-dateien", "allow-lu-onenote-lesen"]
 }

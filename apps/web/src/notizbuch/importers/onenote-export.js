@@ -169,45 +169,77 @@ async function pdfBilder(bytes, hochladen) {
 export async function exportLesen(file) {
   let zip;
   try { zip = await JSZip.loadAsync(file); } catch { throw new ExportFehler("Das ist keine ZIP-Datei von «OneNote zu RESCOOL»."); }
+  return exportAufbau(zip);
+}
+
+/**
+ * Aufbau aus einer ZIP-Datei oder einem Ordner (Lernumgebung: Export auf diesem Computer). zip braucht nur file(pfad) → { async(art) } | null.
+ * Seiten ohne Datei (noch nicht exportiert) stehen mit bereit=false im Baum: Reihenfolge und Ebenen stimmen so auch bei einem Teilimport.
+ */
+export async function exportAufbau(zip) {
   const a = zip.file("aufbau.xml");
   if (!a) throw new ExportFehler("In der ZIP-Datei fehlt aufbau.xml. Bitte die Datei verwenden, die «OneNote zu RESCOOL» erstellt hat.");
-  const doc = new DOMParser().parseFromString(await a.async("string"), "application/xml");
+  const doc = new DOMParser().parseFromString((await a.async("string")).replace(/^\uFEFF/, ""), "application/xml");
+  const wurzel = doc.documentElement;
   const knoten = (el) => {
     const out = [];
     for (const c of el.children) {
-      if (c.localName === "SectionGroup" && c.getAttribute("isRecycleBin") !== "true") out.push({ art: "gruppe", name: c.getAttribute("name"), kinder: knoten(c) });
-      if (c.localName === "Section" && c.getAttribute("isInRecycleBin") !== "true" && c.getAttribute("locked") !== "true")
-        out.push({ art: "abschnitt", name: c.getAttribute("name"), farbe: farbe(c.getAttribute("color"), null),
-          seiten: kinder(c, "Page").filter((p) => p.getAttribute("isInRecycleBin") !== "true" && p.getAttribute("rescoolDatei")).map((p) => ({
-            titel: p.getAttribute("name") || "", ebene: Math.max(0, Math.min(2, zahl(p.getAttribute("pageLevel"), 1) - 1)),
-            erstellt: p.getAttribute("dateTime"), geaendert: p.getAttribute("lastModifiedTime"), datei: p.getAttribute("rescoolDatei") })) });
+      if (c.localName === "SectionGroup" && c.getAttribute("isRecycleBin") !== "true") out.push({ art: "gruppe", id: c.getAttribute("ID"), name: c.getAttribute("name"), kinder: knoten(c) });
+      if (c.localName === "Section" && c.getAttribute("isInRecycleBin") !== "true" && c.getAttribute("locked") !== "true") {
+        const seiten = kinder(c, "Page").filter((p) => p.getAttribute("isInRecycleBin") !== "true").map((p) => ({
+          id: p.getAttribute("ID"), titel: p.getAttribute("name") || "", ebene: Math.max(0, Math.min(2, zahl(p.getAttribute("pageLevel"), 1) - 1)),
+          erstellt: p.getAttribute("dateTime"), geaendert: p.getAttribute("lastModifiedTime"), datei: p.getAttribute("rescoolDatei"), bereit: !!p.getAttribute("rescoolDatei") }));
+        // Ebenen wie in OneNote, aber nie tiefer als die Seite davor + 1
+        seiten.forEach((p, i) => { p.ebene = Math.min(p.ebene, i === 0 ? 0 : seiten[i - 1].ebene + 1); p.reihenfolge = i + 1; });
+        out.push({ art: "abschnitt", id: c.getAttribute("ID"), name: c.getAttribute("name"), farbe: farbe(c.getAttribute("color"), null), seiten });
+      }
     }
+    // Teilexport (Auswahl): Leeres weglassen
+    if (wurzel.getAttribute("rescoolAuswahl") === "1") return out.filter((k) => (k.seiten ? k.seiten.some((p) => p.bereit) : k.kinder.length));
     return out;
   };
-  const buecher = kinder(doc.documentElement, "Notebook").map((n) => ({ name: n.getAttribute("nickname") || n.getAttribute("name"), farbe: farbe(n.getAttribute("color"), null), kinder: knoten(n) }));
-  let seiten = 0; const z = (l) => l.forEach((k) => { if (k.seiten) seiten += k.seiten.length; if (k.kinder) z(k.kinder); });
+  const buecher = kinder(wurzel, "Notebook").map((n) => ({ art: "buch", id: n.getAttribute("ID"), name: n.getAttribute("nickname") || n.getAttribute("name"), farbe: farbe(n.getAttribute("color"), null), kinder: knoten(n) }))
+    .filter((b) => wurzel.getAttribute("rescoolAuswahl") !== "1" || b.kinder.length);
+  let seiten = 0, bereit = 0; const z = (l) => l.forEach((k) => { if (k.seiten) { seiten += k.seiten.length; bereit += k.seiten.filter((p) => p.bereit).length; } if (k.kinder) z(k.kinder); });
   buecher.forEach((b) => z(b.kinder));
-  return { zip, buecher, seiten };
+  return { zip, buecher, seiten, bereit, fertig: wurzel.getAttribute("rescoolFertig") !== "0" };
+}
+
+/** Seiten zählen (alle oder nur bereite) in einem Teilbaum */
+export function seitenZahl(k, nurBereit = false) {
+  if (k.seiten) return nurBereit ? k.seiten.filter((p) => p.bereit).length : k.seiten.length;
+  return (k.kinder || []).reduce((n, c) => n + seitenZahl(c, nurBereit), 0);
 }
 
 /**
  * Legt die gewählten Notizbücher im Ziel an: jedes Notizbuch als Gruppe, darin Gruppen, Abschnitte (mit Farbe) und Seiten
- * (mit Ebene) in der Reihenfolge von OneNote.
+ * (mit Ebene) in der Reihenfolge von OneNote. Mit Herkunft (OneNote-Kennungen): Ein zweiter Import ergänzt nur, was fehlt
+ * oder sich geändert hat (vorhanden: Herkunft → Änderungszeit der Seiten, die schon da sind).
  */
-export async function exportImportieren({ zip, buecher }, { erstellen, seitenSpeichern, hochladen, pageText, progress, log, signal }) {
-  const stats = { notebooks: 0, sections: 0, pages: 0, images: 0, files: 0, ink: 0, failed: 0 };
-  let total = 0; const z = (l) => l.forEach((k) => { if (k.seiten) total += k.seiten.length; if (k.kinder) z(k.kinder); });
+export async function exportImportieren({ zip, buecher }, { erstellen, seitenSpeichern, hochladen, pageText, progress, log, signal, vorhanden = {} }) {
+  const stats = { notebooks: 0, sections: 0, pages: 0, images: 0, files: 0, ink: 0, failed: 0, skipped: 0 };
+  const neuNoetig = (s) => s.bereit && !(s.id && vorhanden[s.id] && new Date(vorhanden[s.id]) >= new Date(s.geaendert || 0));
+  let total = 0; const z = (l) => l.forEach((k) => { if (k.seiten) total += k.seiten.filter(neuNoetig).length; if (k.kinder) z(k.kinder); });
   buecher.forEach((b) => z(b.kinder));
   let done = 0, f = 0;
   const FARBEN = ["#3E8EED", "#4FAE6A", "#E8B931", "#E5484D", "#9B55D1", "#21A69A", "#F2994A", "#DE5FA2", "#5B5BE0", "#A57E57"];
   const bau = async (liste, eltern, pfad) => {
-    for (const k of liste) {
+    for (const [stelle, k] of liste.entries()) {
       if (signal && signal.aborted) throw new Error("Abgebrochen. Was schon übernommen war, bleibt erhalten.");
-      if (k.art === "gruppe") { const g = await erstellen({ art: "gruppe", name: k.name, eltern_id: eltern, offen: false }); await bau(k.kinder, g.id, `${pfad} › ${k.name}`); continue; }
-      const sec = await erstellen({ art: "abschnitt", name: k.name, eltern_id: eltern, farbe: k.farbe || FARBEN[f++ % FARBEN.length], ohneSeite: true });
+      if (k.art === "gruppe") {
+        if (!seitenZahl(k, true)) continue;
+        const g = await erstellen({ art: "gruppe", name: k.name, eltern_id: eltern, offen: false, quelle: k.id, reihenfolge: stelle + 1 });
+        await bau(k.kinder, g.id, `${pfad} › ${k.name}`); continue;
+      }
+      // Abschnitte ohne fertige Seiten kommen beim nächsten Durchgang
+      if (k.seiten.length && !k.seiten.some((s) => s.bereit)) continue;
+      const offen = k.seiten.filter(neuNoetig);
+      if (k.seiten.length && !offen.length) { stats.skipped += k.seiten.filter((s) => s.bereit).length; continue; }
+      const sec = await erstellen({ art: "abschnitt", name: k.name, eltern_id: eltern, farbe: k.farbe || FARBEN[f++ % FARBEN.length], ohneSeite: true, quelle: k.id, reihenfolge: stelle + 1 });
       log(`  › ${pfad} › ${k.name}`);
       const fertig = [];
-      for (const s of k.seiten) {
+      const senden = async () => { if (fertig.length) await seitenSpeichern(sec.id, fertig.splice(0)); };
+      for (const s of offen) {
         progress({ phase: "Seiten übernehmen", text: `${pfad} › ${k.name} › ${s.titel || "Ohne Titel"}`, done, total });
         const hoch = async (bytes, ext, name) => { const id = await hochladen(bytes, ext, name, sec.id); if (/^(png|jpg|gif|webp)$/.test(ext)) stats.images++; else stats.files++; return id; };
         let items = [], strokes = [], bg = {};
@@ -215,7 +247,7 @@ export async function exportImportieren({ zip, buecher }, { erstellen, seitenSpe
           const xml = await zip.file(s.datei).async("string");
           const tj = zip.file(s.datei.replace(/\.xml$/, "-tinte.json"));
           const tinte = tj ? JSON.parse((await tj.async("string")).replace(/^\uFEFF/, "")) : null;
-          ({ items, strokes, bg } = await seiteLesen(new DOMParser().parseFromString(xml, "application/xml"), zip, hoch, log, s.titel, tinte));
+          ({ items, strokes, bg } = await seiteLesen(new DOMParser().parseFromString(xml.replace(/^\uFEFF/, ""), "application/xml"), zip, hoch, log, s.titel, tinte));
           if (strokes.length) stats.ink += strokes.length;
           const pdf = zip.file(s.datei.replace(/\.xml$/, ".pdf"));
           if (pdf) {
@@ -225,20 +257,22 @@ export async function exportImportieren({ zip, buecher }, { erstellen, seitenSpe
           }
         } catch (e) { stats.failed++; log(`  ✗ «${s.titel || "Ohne Titel"}»: ${e.message}`, true); }
         const p = { title: s.titel, items, strokes, bg };
-        fertig.push({ titel: s.titel, ebene: s.ebene, erstellt_am: s.erstellt, geaendert_am: s.geaendert, inhalt: { items, strokes, bg }, text: pageText(p) });
+        fertig.push({ titel: s.titel, ebene: s.ebene, reihenfolge: s.reihenfolge, quelle: s.id, erstellt_am: s.erstellt, geaendert_am: s.geaendert, inhalt: { items, strokes, bg }, text: pageText(p) });
         done++; stats.pages++;
+        if (fertig.length >= 25) await senden();
       }
-      fertig.forEach((p, i) => { p.ebene = Math.min(p.ebene, i === 0 ? 0 : fertig[i - 1].ebene + 1); });
-      for (let i = 0; i < fertig.length; i += 25) await seitenSpeichern(sec.id, fertig.slice(i, i + 25));
-      if (!fertig.length) await seitenSpeichern(sec.id, [{ titel: "", ebene: 0, inhalt: { items: [], strokes: [] }, text: "" }]);
+      await senden();
+      if (!k.seiten.length && !sec.vorhanden) await seitenSpeichern(sec.id, [{ titel: "", ebene: 0, inhalt: { items: [], strokes: [] }, text: "" }]);
       stats.sections++;
     }
   };
   for (const b of buecher) {
+    if (!seitenZahl(b, true)) continue;
     log(`Notizbuch «${b.name}»`);
-    const g = await erstellen({ art: "gruppe", name: b.name, eltern_id: null, offen: true });
+    const g = await erstellen({ art: "gruppe", name: b.name, eltern_id: null, offen: true, quelle: b.id });
+    const vorher = stats.pages;
     await bau(b.kinder, g.id, b.name);
-    stats.notebooks++;
+    if (stats.pages > vorher || !g.vorhanden) stats.notebooks++;
   }
   return stats;
 }

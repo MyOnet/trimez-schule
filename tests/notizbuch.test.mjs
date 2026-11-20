@@ -161,4 +161,40 @@ describe("Kursnotizbuch", () => {
     const st = await j("GET", "/api/onenote/status", lea);
     expect(st).toHaveProperty("verbunden");
   });
+
+  it("OneNote-Import fortsetzen: Herkunft verhindert Doppeltes, Reihenfolge wie in OneNote, Änderungen kommen nach", async () => {
+    const ziel = { bereich: "schueler" };
+    const buch = await j("POST", `/api/notizbuch/${uid3a}/abschnitte`, lea, { ...ziel, art: "gruppe", name: "Bio (OneNote)", quelle: "{NB1}" });
+    const abs = await j("POST", `/api/notizbuch/${uid3a}/abschnitte`, lea, { ...ziel, name: "Zelle", eltern_id: buch.id, quelle: "{S1}", ohneSeite: true, reihenfolge: 1 });
+    // erster Durchgang: die zuletzt bearbeitete Seite (in OneNote an 3. Stelle)
+    let r = await j("POST", `/api/notizbuch/abschnitte/${abs.id}/seiten-import`, lea, { seiten: [{ titel: "Drei", reihenfolge: 3, quelle: "{P3}", geaendert_am: "2026-11-01T10:00:00Z", inhalt: { items: [], strokes: [] } }] });
+    expect(r.neu).toBe(1);
+    // zweiter Durchgang: Gruppe und Abschnitt werden wiederverwendet, P3 nicht doppelt
+    const buch2 = await j("POST", `/api/notizbuch/${uid3a}/abschnitte`, lea, { ...ziel, art: "gruppe", name: "Bio (OneNote)", quelle: "{NB1}" });
+    expect(buch2.id).toBe(buch.id); expect(buch2.vorhanden).toBe(true);
+    const abs2 = await j("POST", `/api/notizbuch/${uid3a}/abschnitte`, lea, { ...ziel, name: "Zelle", eltern_id: buch.id, quelle: "{S1}", ohneSeite: true });
+    expect(abs2.id).toBe(abs.id);
+    r = await j("POST", `/api/notizbuch/abschnitte/${abs.id}/seiten-import`, lea, { seiten: [
+      { titel: "Eins", reihenfolge: 1, quelle: "{P1}", geaendert_am: "2026-10-01T10:00:00Z", inhalt: { items: [], strokes: [] } },
+      { titel: "Drei", reihenfolge: 3, quelle: "{P3}", geaendert_am: "2026-11-01T10:00:00Z", inhalt: { items: [], strokes: [] } },
+      { titel: "Zwei", reihenfolge: 2, quelle: "{P2}", geaendert_am: "2026-10-02T10:00:00Z", inhalt: { items: [], strokes: [] } }] });
+    expect(r).toMatchObject({ neu: 2, uebersprungen: 1 });
+    const nb = await j("GET", `/api/notizbuch/${uid3a}`, lea);
+    const finde = (l) => { for (const k of l) { if (k.id === abs.id) return k; const x = k.kinder && finde(k.kinder); if (x) return x; } return null; };
+    const sec = nb.bereiche.map((b) => finde(b.abschnitte || b.kinder || [])).find(Boolean);
+    expect(sec.seiten.map((s) => s.titel)).toEqual(["Eins", "Zwei", "Drei"]);
+    // was schon da ist (für den nächsten Durchgang)
+    const q = await j("GET", `/api/notizbuch/${uid3a}/quellen?bereich=schueler`, lea);
+    expect(Object.keys(q.seiten).sort()).toEqual(["{P1}", "{P2}", "{P3}"]);
+    // in OneNote geändert, in RESCOOL nie bearbeitet: neue Fassung; in RESCOOL bearbeitet: bleibt
+    const p1 = sec.seiten.find((s) => s.titel === "Eins").id;
+    r = await j("POST", `/api/notizbuch/abschnitte/${abs.id}/seiten-import`, lea, { seiten: [{ titel: "Drei neu", reihenfolge: 3, quelle: "{P3}", geaendert_am: "2026-11-05T10:00:00Z", inhalt: { items: [], strokes: [] } }] });
+    expect(r.aktualisiert).toBe(1);
+    expect((await call("PUT", `/api/notizbuch/seiten/${p1}`, lea, { titel: "Eins (meins)", inhalt: { items: [], strokes: [] }, text: "", version: 1 })).statusCode).toBe(200);
+    r = await j("POST", `/api/notizbuch/abschnitte/${abs.id}/seiten-import`, lea, { seiten: [{ titel: "Eins neu", reihenfolge: 1, quelle: "{P1}", geaendert_am: "2026-11-06T10:00:00Z", inhalt: { items: [], strokes: [] } }] });
+    expect(r.uebersprungen).toBe(1);
+    expect((await j("GET", `/api/notizbuch/seiten/${p1}`, lea)).titel).toBe("Eins (meins)");
+    // fremder Bereich: kein Zugriff auf die Herkunft
+    expect((await call("GET", `/api/notizbuch/${uid3a}/quellen?bereich=lehrkraefte`, lea)).statusCode).toBe(404);
+  });
 });

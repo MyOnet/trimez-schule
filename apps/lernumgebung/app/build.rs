@@ -25,6 +25,6 @@ fn main() {
     let verdeckt: Vec<u8> = schluessel.iter().zip(&maske).map(|(a, b)| a ^ b).collect();
     let aus = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("schluessel.rs");
     std::fs::write(aus, format!("const MASKE: [u8; {n}] = {maske:?};\nconst VERDECKT: [u8; {n}] = {verdeckt:?};\n", n = maske.len())).unwrap();
-    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&["lu_status", "lu_seite_oeffnen", "lu_tabs", "lu_tab_zeigen", "lu_tab_schliessen", "lu_hilfsmittel_schliessen", "lu_beenden", "lu_notausgang", "lu_server_setzen"])))
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&["lu_status", "lu_seite_oeffnen", "lu_tabs", "lu_tab_zeigen", "lu_tab_schliessen", "lu_hilfsmittel_schliessen", "lu_beenden", "lu_notausgang", "lu_server_setzen", "lu_onenote_stand", "lu_onenote_starten", "lu_onenote_dateien", "lu_onenote_lesen"])))
         .expect("tauri-build");
 }

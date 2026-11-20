@@ -222,11 +222,18 @@ export default async function (app) {
       const [e] = await q("SELECT * FROM notiz_abschnitt WHERE id = $1 AND geloescht_am IS NULL", [eltern]);
       if (!e || e.art !== "gruppe" || e.unterricht_id !== uid || e.bereich !== bereich || e.besitzer_id !== besitzer) fehler(400, "Diese Gruppe gibt es hier nicht.");
     }
-    const [m] = await q("SELECT coalesce(max(reihenfolge), 0) AS m FROM notiz_abschnitt WHERE unterricht_id = $1 AND bereich = $2 AND besitzer_id IS NOT DISTINCT FROM $3", [uid, bereich, besitzer]);
     const art = b.art === "gruppe" ? "gruppe" : "abschnitt";
-    const [a] = await q(`INSERT INTO notiz_abschnitt (unterricht_id, bereich, besitzer_id, eltern_id, art, name, farbe, reihenfolge, offen)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [uid, bereich, besitzer, eltern, art, text(b.name, 120) || (art === "gruppe" ? "Neue Gruppe" : "Neuer Abschnitt"), farbe(b.farbe), b.reihenfolge !== undefined ? zahl(b.reihenfolge) : m.m + 1, b.offen !== false]);
+    const quelle = text(b.quelle, 200) || null;
+    // Import wiederholt oder fortgesetzt: denselben Abschnitt (gleiche Herkunft, gleicher Ort) weiterverwenden
+    if (quelle) {
+      const [v] = await q(`SELECT * FROM notiz_abschnitt WHERE unterricht_id = $1 AND bereich = $2 AND besitzer_id IS NOT DISTINCT FROM $3
+        AND quelle = $4 AND art = $5 AND eltern_id IS NOT DISTINCT FROM $6 AND geloescht_am IS NULL LIMIT 1`, [uid, bereich, besitzer, quelle, art, eltern]);
+      if (v) return { id: v.id, art, name: v.name, farbe: v.farbe, reihenfolge: v.reihenfolge, eltern_id: v.eltern_id, bereich, besitzer_id: besitzer, offen: v.offen, vorhanden: true };
+    }
+    const [m] = await q("SELECT coalesce(max(reihenfolge), 0) AS m FROM notiz_abschnitt WHERE unterricht_id = $1 AND bereich = $2 AND besitzer_id IS NOT DISTINCT FROM $3", [uid, bereich, besitzer]);
+    const [a] = await q(`INSERT INTO notiz_abschnitt (unterricht_id, bereich, besitzer_id, eltern_id, art, name, farbe, reihenfolge, offen, quelle)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [uid, bereich, besitzer, eltern, art, text(b.name, 120) || (art === "gruppe" ? "Neue Gruppe" : "Neuer Abschnitt"), farbe(b.farbe), b.reihenfolge !== undefined ? zahl(b.reihenfolge) : m.m + 1, b.offen !== false, quelle]);
     let erste = null;
     if (art === "abschnitt" && b.ohneSeite !== true) [erste] = await q("INSERT INTO notiz_seite (abschnitt_id, geaendert_von) VALUES ($1,$2) RETURNING *", [a.id, req.ctx.personId]);
     return { id: a.id, art, name: a.name, farbe: a.farbe, reihenfolge: a.reihenfolge, eltern_id: a.eltern_id, bereich, besitzer_id: besitzer, offen: a.offen,
@@ -345,14 +352,41 @@ export default async function (app) {
   app.post("/api/notizbuch/abschnitte/:aid/seiten-import", { ...GROSS }, geschuetzt(async (req, res, q) => {
     const { a } = await abschnitt(q, req.ctx, req.params.aid, true);
     const seiten = Array.isArray(req.body && req.body.seiten) ? req.body.seiten.slice(0, 2000) : fehler(400, "Keine Seiten erhalten.");
-    let r = 0;
+    const dat = (x) => (x && !isNaN(new Date(x)) ? new Date(x).toISOString() : new Date().toISOString());
+    const [m] = await q("SELECT coalesce(max(reihenfolge), 0) AS m FROM notiz_seite WHERE abschnitt_id = $1", [a.id]);
+    let r = m.m, neu = 0, aktualisiert = 0, uebersprungen = 0;
     for (const s of seiten) {
-      r += 1;
-      const dat = (x) => (x && !isNaN(new Date(x)) ? new Date(x).toISOString() : new Date().toISOString());
-      await q(`INSERT INTO notiz_seite (abschnitt_id, titel, ebene, reihenfolge, inhalt, text, erstellt_am, geaendert_am, geaendert_von) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [a.id, text(s.titel, 300), Math.max(0, Math.min(2, zahl(s.ebene))), r, JSON.stringify(inhaltLesen(s.inhalt || {})), String(s.text || "").slice(0, 100000), dat(s.erstellt_am), dat(s.geaendert_am), req.ctx.personId]);
+      const quelle = text(s.quelle, 200) || null;
+      const reihe = s.reihenfolge !== undefined ? zahl(s.reihenfolge) : (r += 1);
+      const werte = [text(s.titel, 300), Math.max(0, Math.min(2, zahl(s.ebene))), reihe, JSON.stringify(inhaltLesen(s.inhalt || {})), String(s.text || "").slice(0, 100000), dat(s.erstellt_am), dat(s.geaendert_am)];
+      if (quelle) {
+        const [v] = await q("SELECT id, version, geaendert_am FROM notiz_seite WHERE abschnitt_id = $1 AND quelle = $2 AND geloescht_am IS NULL LIMIT 1", [a.id, quelle]);
+        if (v) {
+          // In OneNote geändert und in RESCOOL noch nie bearbeitet: neue Fassung übernehmen; sonst die Seite in RESCOOL lassen
+          if (v.version === 1 && new Date(werte[6]) > new Date(v.geaendert_am)) {
+            await q("UPDATE notiz_seite SET titel = $1, ebene = $2, reihenfolge = $3, inhalt = $4, text = $5, geaendert_am = $6 WHERE id = $7", [werte[0], werte[1], werte[2], werte[3], werte[4], werte[6], v.id]);
+            aktualisiert += 1;
+          } else uebersprungen += 1;
+          continue;
+        }
+      }
+      await q(`INSERT INTO notiz_seite (abschnitt_id, titel, ebene, reihenfolge, inhalt, text, erstellt_am, geaendert_am, geaendert_von, quelle) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [a.id, ...werte, req.ctx.personId, quelle]);
+      neu += 1;
     }
-    return { anzahl: r };
+    return { anzahl: neu + aktualisiert, neu, aktualisiert, uebersprungen };
+  }));
+
+  /* ---------- Was aus OneNote schon da ist (Herkunft -> Änderungszeit), damit ein wiederholter Import nur Neues liest ---------- */
+  app.get("/api/notizbuch/:uid/quellen", geschuetzt(async (req, res, q) => {
+    const uid = id(req.params.uid);
+    const z = offenOderFehler(await zugang(q, req.ctx, uid));
+    const bereich = BEREICHE.includes(req.query.bereich) ? req.query.bereich : fehler(400, "Unbekannter Bereich.");
+    const besitzer = bereich === "schueler" ? (z.rolle === "lp" ? id(req.query.besitzer_id) : req.ctx.personId) : null;
+    if (!darfLesen(z, { bereich, besitzer_id: besitzer }, req.ctx)) fehler(404, "Notizbuch nicht gefunden.");
+    const zeilen = await q(`SELECT s.quelle, s.geaendert_am FROM notiz_seite s JOIN notiz_abschnitt a ON a.id = s.abschnitt_id
+      WHERE a.unterricht_id = $1 AND a.bereich = $2 AND a.besitzer_id IS NOT DISTINCT FROM $3 AND a.geloescht_am IS NULL AND s.geloescht_am IS NULL AND s.quelle IS NOT NULL`, [uid, bereich, besitzer]);
+    return { seiten: Object.fromEntries(zeilen.map((x) => [x.quelle, x.geaendert_am])) };
   }));
 
   /* ---------- Aufgaben und Tags (Seiten mit Tags, die man lesen darf) ---------- */

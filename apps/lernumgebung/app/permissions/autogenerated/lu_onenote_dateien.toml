@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-onenote-dateien"
+description = "Enables the lu_onenote_dateien command without any pre-configured scope."
+commands.allow = ["lu_onenote_dateien"]
+
+[[permission]]
+identifier = "deny-lu-onenote-dateien"
+description = "Denies the lu_onenote_dateien command without any pre-configured scope."
+commands.deny = ["lu_onenote_dateien"]

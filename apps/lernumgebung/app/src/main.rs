@@ -4,6 +4,7 @@
 // Erlaubte Seiten (z. B. Duden) öffnen in einem zweiten Fenster, alles andere wird blockiert.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod onenote;
 mod proxy;
 mod sperre;
 mod ueberwachung;
@@ -259,6 +260,13 @@ fn einstieg_skript() -> String {
         tabSchliessen: (id) => window.__TAURI_INTERNALS__.invoke("lu_tab_schliessen", {{ id: String(id) }}),
         beenden: () => window.__TAURI_INTERNALS__.invoke("lu_beenden"),
         hilfsmittelSchliessen: () => window.__TAURI_INTERNALS__.invoke("lu_hilfsmittel_schliessen").then(() => window.dispatchEvent(new Event("trimez-tabs"))),
+        // OneNote-Notizbücher, die die App auf diesem Computer vorbereitet hat (nur Windows)
+        onenote: Object.freeze({{
+          stand: () => window.__TAURI_INTERNALS__.invoke("lu_onenote_stand"),
+          starten: () => window.__TAURI_INTERNALS__.invoke("lu_onenote_starten"),
+          dateien: () => window.__TAURI_INTERNALS__.invoke("lu_onenote_dateien"),
+          lesen: (pfad) => window.__TAURI_INTERNALS__.invoke("lu_onenote_lesen", {{ pfad: String(pfad) }}).then((b) => new Uint8Array(b)),
+        }}),
       }});
       // Kontextmenü, Drucken und Entwicklerwerkzeuge sperren
       window.addEventListener("contextmenu", (e) => e.preventDefault(), true);
@@ -272,6 +280,11 @@ fn einstieg_skript() -> String {
 }
 
 fn main() {
+    // Vom Installationsprogramm oder beim Start angestossen: nur OneNote exportieren, ohne Fenster, dann beenden
+    if std::env::args().any(|a| a == onenote::ARGUMENT) { std::process::exit(onenote::hintergrund()); }
+    // Noch auf dem normalen Desktop: OneNote-Export im Hintergrund auffrischen, wenn nötig
+    #[cfg(windows)]
+    if sperre::desktop::aufseher().is_none() { onenote::beim_start(); }
     // Windows: zuerst auf einen eigenen Desktop wechseln (diese Instanz bleibt als unsichtbarer Aufseher zurück)
     #[cfg(windows)]
     if let Some(code) = sperre::desktop::als_aufseher_starten() { std::process::exit(code); }
@@ -296,7 +309,8 @@ fn main() {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn(async move { antwort.respond(proxy::weiterleiten(&app, anfrage).await); });
         })
-        .invoke_handler(tauri::generate_handler![lu_server_setzen, lu_status, lu_seite_oeffnen, lu_tabs, lu_tab_zeigen, lu_tab_schliessen, lu_hilfsmittel_schliessen, lu_beenden, lu_notausgang])
+        .invoke_handler(tauri::generate_handler![lu_server_setzen, lu_status, lu_seite_oeffnen, lu_tabs, lu_tab_zeigen, lu_tab_schliessen, lu_hilfsmittel_schliessen, lu_beenden, lu_notausgang,
+            onenote::lu_onenote_stand, onenote::lu_onenote_starten, onenote::lu_onenote_dateien, onenote::lu_onenote_lesen])
         .setup(|app| {
             let start: url::Url = format!("{}/", eigene_herkunft()).parse().expect("Startadresse");
             let pruef = app.handle().clone();

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lu-onenote-starten"
+description = "Enables the lu_onenote_starten command without any pre-configured scope."
+commands.allow = ["lu_onenote_starten"]
+
+[[permission]]
+identifier = "deny-lu-onenote-starten"
+description = "Denies the lu_onenote_starten command without any pre-configured scope."
+commands.deny = ["lu_onenote_starten"]
