@@ -113,6 +113,10 @@ Für Tests ohne eigenen Server-PC: `render.yaml` und `deploy/Dockerfile` bauen e
 
 Grenzen der Gratis-Stufe: Nach 15 Minuten ohne Anfragen schläft der Dienst ein, das Aufwachen dauert bis zu einer Minute. **Bei jedem Neustart wird die Testschule neu angelegt**, Eingaben gehen dann verloren. Rechenzentrum in Frankfurt: nur Testdaten, keine echten Schülerdaten. Der Server läuft mit dem Entwicklungsschlüssel der Lernumgebung (passt zur Testversion der App).
 
+## Schulbetrieb
+
+Aufträge, Klassenräume, Mitteilungen, Formulare, Kalender mit Prüfungslimit und Untis-Import, Absenzen, Ablage, Zeugnisse mit Promotion, Maturaarbeit und Elternzugang. Mehr dazu in `docs/11-bericht-schulbetrieb.md`. Testkonto für Eltern: `daniela.ammann@eltern.seeufer.test`.
+
 ## Kursnotizbuch
 
 Jeder Unterricht hat ein Kursnotizbuch (Sheaf): Inhaltsbibliothek (Lehrperson schreibt, Klasse liest), Zusammenarbeit (alle schreiben), Bereich nur für Lehrpersonen und ein eigener Bereich für jede Schülerin und jeden Schüler (sichtbar für die Person und ihre Lehrpersonen, nicht für die Administration).

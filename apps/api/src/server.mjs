@@ -48,6 +48,16 @@ export async function bauen({ log = false } = {}) {
   await app.register((await import("./routes/lektionen.mjs")).default);
   await app.register((await import("./routes/notizbuch.mjs")).default);
   await app.register((await import("./routes/onenote.mjs")).default);
+  await app.register((await import("./routes/auftraege.mjs")).default);
+  await app.register((await import("./routes/mitteilungen.mjs")).default);
+  await app.register((await import("./routes/raum.mjs")).default);
+  await app.register((await import("./routes/formulare.mjs")).default);
+  await app.register((await import("./routes/kalender.mjs")).default);
+  await app.register((await import("./routes/absenzen.mjs")).default);
+  await app.register((await import("./routes/ablage.mjs")).default);
+  await app.register((await import("./routes/zeugnisse.mjs")).default);
+  await app.register((await import("./routes/matura.mjs")).default);
+  await app.register((await import("./routes/eltern.mjs")).default);
 
   // Oberfläche (gebaut mit Vite) ausliefern; alle anderen Pfade → index.html
   const web = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");

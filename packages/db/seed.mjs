@@ -183,6 +183,97 @@ for (const [fk, lpk, bew] of [["D", "KEM", [["Erörterung", "Prüfung", "2026-09
     [lp.KEM, fach.D, typ, inhalt, loesung, punkte, sw, [inhalt.frage, inhalt.text, ...(inhalt.optionen || []).map((o) => o.text)].filter(Boolean).join(" ")]);
 }
 
+// Schulbetrieb: Geburtsdaten, Eltern, Stundenplan, Auftrag, Klassenraum, Formular, Absenzen, Maturaarbeit
+{
+  const tag = (n) => { const d = new Date(Date.now() + n * 864e5); return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Zurich" }); };
+  const klassen = await q("SELECT id, name, stufe FROM klasse");
+  for (const k of klassen) {
+    const sch = await q("SELECT ks.person_id AS id FROM klasse_schueler ks JOIN person p ON p.id = ks.person_id WHERE ks.klasse_id = $1 ORDER BY p.extern_id", [k.id]);
+    // 3. Klasse: etwa 15 bis 16 Jahre, 5. Klasse: 17 bis 18 Jahre (die ersten fünf sind schon volljährig)
+    for (let n = 0; n < sch.length; n++) {
+      const jahr = k.stufe === 5 ? (n < 5 ? 2008 : 2009) : 2010 + (n % 3 === 0 ? 1 : 0);
+      await q("UPDATE person SET geburtsdatum = $1 WHERE id = $2", [`${jahr}-${String(1 + (n * 5) % 12).padStart(2, "0")}-${String(1 + (n * 7) % 28).padStart(2, "0")}`, sch[n].id]);
+    }
+  }
+  const [lea] = await q("SELECT id FROM person WHERE email = 'lea.ammann.26001@schueler.seeufer.test'");
+  const [kind2] = await q("SELECT p.id FROM person p JOIN klasse_schueler ks ON ks.person_id = p.id WHERE ks.klasse_id = $1 AND p.extern_id = '26002'", [k3a.id]);
+  const mama = await person("Daniela", "Ammann", ["eltern"], { email: "daniela.ammann@eltern.seeufer.test", konto: true });
+  await q("INSERT INTO eltern_kind (eltern_id, kind_id, beziehung) VALUES ($1,$2,'mutter')", [mama, lea.id]);
+  if (kind2) { const p2 = await person("Marco", "Lüthi", ["eltern"], { email: "marco.luethi@eltern.seeufer.test" }); await q("INSERT INTO eltern_kind (eltern_id, kind_id, beziehung) VALUES ($1,$2,'vater')", [p2, kind2.id]); }
+
+  // Stundenplan 3a (aus einem Untis-Export würde dasselbe entstehen)
+  const u3a = Object.fromEntries((await q("SELECT u.id, f.kuerzel FROM unterricht u JOIN fach f ON f.id = u.fach_id WHERE u.klasse_id = $1", [k3a.id])).map((r) => [r.kuerzel, r.id]));
+  const PLAN = [[1, 1, "D", "A12"], [1, 2, "D", "A12"], [1, 3, "M", "B04"], [1, 4, "E", "A12"], [1, 6, "B", "N21"], [1, 7, "B", "N21"],
+    [2, 1, "F", "A12"], [2, 2, "M", "B04"], [2, 3, "G", "A15"], [2, 4, "G", "A15"], [2, 6, "P", "N11"],
+    [3, 1, "E", "A12"], [3, 2, "D", "A12"], [3, 3, "F", "A12"], [3, 4, "M", "B04"],
+    [4, 1, "M", "B04"], [4, 2, "P", "N11"], [4, 3, "P", "N11"], [4, 4, "D", "A12"], [4, 6, "F", "A12"], [4, 7, "E", "A12"],
+    [5, 1, "B", "N21"], [5, 2, "G", "A15"], [5, 3, "F", "A12"], [5, 4, "M", "B04"]];
+  for (const [wt, l, f, raum] of PLAN) await q("INSERT INTO stundenplan (unterricht_id, wochentag, lektion, raum, gueltig_von, gueltig_bis) VALUES ($1,$2,$3,$4,'2026-08-17','2027-07-16')", [u3a[f], wt, l, raum]);
+  // Eine Änderung in den nächsten Tagen: Mathematik fällt aus
+  for (let n = 1; n <= 7; n++) { const d = new Date(Date.now() + n * 864e5); if (d.getDay() === 3) { await q("INSERT INTO stundenplan_aenderung (datum, unterricht_id, lektion, art, text, erstellt_von) VALUES ($1,$2,4,'ausfall','Weiterbildung',$3)", [tag(n), u3a.M, admin]); break; } }
+
+  // Auftrag in Deutsch 3a
+  const [auf] = await q(`INSERT INTO auftrag (unterricht_id, titel, anleitung, faellig_am, punkte_max, raster, abgabe, status, erstellt_von) VALUES ($1,$2,$3,$4,12,$5,$6,'veroeffentlicht',$7) RETURNING id`,
+    [u3a.D, "Charakterisierung Nettchen", "Schreiben Sie eine Charakterisierung von Nettchen (400 bis 600 Wörter). Belegen Sie jede Aussage mit einer Textstelle.",
+      new Date(Date.now() + 5 * 864e5).toISOString(), JSON.stringify([{ id: "inhalt", kriterium: "Inhalt und Belege", beschreibung: "", punkte: 6 }, { id: "aufbau", kriterium: "Aufbau", beschreibung: "", punkte: 3 }, { id: "sprache", kriterium: "Sprache", beschreibung: "", punkte: 3 }]),
+      { text: true, datei: true, notizbuch: true }, lp.KEM]);
+  await q("INSERT INTO auftrag_abgabe (auftrag_id, schueler_id, status, text, abgegeben_am) VALUES ($1,$2,'abgegeben',$3, now() - interval '1 day')", [auf.id, sch3a[1], "Nettchen ist die Tochter des Amtsrats …"]);
+
+  // Klassenraum Deutsch 3a
+  const [ank] = await q("INSERT INTO beitrag (unterricht_id, autor_id, art, text, angeheftet) VALUES ($1,$2,'ankuendigung',$3,true) RETURNING id", [u3a.D, lp.KEM, "Bitte bringen Sie am Montag die Lektüre «Kleider machen Leute» mit. Wir lesen Kapitel 4 gemeinsam."]);
+  const [fr] = await q("INSERT INTO beitrag (unterricht_id, autor_id, art, text) VALUES ($1,$2,'frage',$3) RETURNING id", [u3a.D, lea.id, "Zählt bei der Charakterisierung das Zitat zur Wortzahl?"]);
+  await q("INSERT INTO beitrag (unterricht_id, autor_id, art, text, eltern_id) VALUES ($1,$2,'beitrag',$3,$4)", [u3a.D, lp.KEM, "Nein, Zitate zählen nicht zur Wortzahl.", fr.id]);
+  await q("UPDATE beitrag SET beantwortet = true WHERE id = $1", [fr.id]);
+  await q("INSERT INTO schulmitteilung (titel, text, zielgruppe, wichtig, autor_id) VALUES ($1,$2,$3,true,$4)",
+    ["Elternabend der 3. Klassen", "Der Elternabend der 3. Klassen findet am Donnerstag, 10. Dezember, um 19 Uhr in der Aula statt. Bitte melden Sie sich über das Formular an.", ["lehrperson", "schueler", "eltern"], admin]);
+
+  // Formulare: Quiz Deutsch, Anmeldung Elternabend (Fragen über dieselbe Prüfung wie in der App)
+  const { fragenLesen } = await import("../shared/src/formular.mjs");
+  const quiz = fragenLesen([
+    { id: "f1", typ: "einfach", punkte: 1, inhalt: { frage: "Wo steht das Komma? «Ich hoffe dass du kommst.»", optionen: [{ id: "a", text: "nach «hoffe»" }, { id: "b", text: "nach «dass»" }, { id: "c", text: "Es braucht keines." }] }, loesung: { richtig: "a" } },
+    { id: "f2", typ: "mehrfach", punkte: 2, inhalt: { frage: "Welche Sätze sind richtig gesetzt?", optionen: [{ id: "a", text: "Er kam, sah und siegte." }, { id: "b", text: "Er kam, und sah, und siegte." }, { id: "c", text: "Weil es regnet, bleiben wir drinnen." }] }, loesung: { richtig: ["a", "c"], teilpunkte: true } },
+  ], "quiz");
+  await q(`INSERT INTO formular (art, titel, beschreibung, unterricht_id, fragen, einstellungen, status, erstellt_von) VALUES ('quiz', 'Kommaregeln: Selbsttest', 'Prüfen Sie, ob Sie die Kommaregeln sicher beherrschen.', $1, $2, $3, 'offen', $4)`,
+    [u3a.D, JSON.stringify(quiz), { mehrfach: true, loesungen: true }, lp.KEM]);
+  const anm = fragenLesen([
+    { id: "zeit", typ: "termin", inhalt: { frage: "Gespräch mit der Klassenlehrperson (freiwillig, 10 Minuten)", optionen: [{ id: "t1", text: "Do 10.12., 20:00", plaetze: 3 }, { id: "t2", text: "Do 10.12., 20:15", plaetze: 3 }, { id: "t3", text: "Kein Gespräch nötig", plaetze: 0 }] } },
+    { id: "personen", typ: "auswahl", inhalt: { frage: "Wie viele Personen kommen?", optionen: [{ id: "p1", text: "1 Person" }, { id: "p2", text: "2 Personen" }] } },
+    { id: "fragen", typ: "text", pflicht: false, inhalt: { frage: "Fragen an die Klassenlehrperson" } },
+  ], "anmeldung");
+  await q(`INSERT INTO formular (art, titel, beschreibung, fragen, einstellungen, status, erstellt_von, schliesst_am) VALUES ('anmeldung', 'Elternabend 3. Klassen', 'Bitte melden Sie sich bis eine Woche vorher an.', $1, $2, 'offen', $3, $4)`,
+    [JSON.stringify(anm), { oeffentlich: true }, admin, new Date(Date.now() + 14 * 864e5).toISOString()]);
+
+  // Absenzen 3a
+  const [uE] = [u3a.E];
+  for (const [n, sid, l, status] of [[-3, sch3a[4], 1, "offen"], [-3, sch3a[4], 2, "offen"], [-20, sch3a[5], 1, "unentschuldigt"], [-20, sch3a[5], 2, "unentschuldigt"], [-10, sch3a[5], 4, "unentschuldigt"], [-6, lea.id, 4, "entschuldigt"]])
+    await q("INSERT INTO absenz (schueler_id, datum, lektion, unterricht_id, art, status, erfasst_von) VALUES ($1,$2,$3,$4,'abwesend',$5,$6)", [sid, tag(n), l, uE, status, lp.HUN]);
+
+  // Zeugnisnoten 1. Semester 3a (Deutsch und Mathematik noch Entwurf, Rest freigegeben), damit Promotion und Zeugnis etwas zeigen. Zwei Fälle unter dem Strich.
+  {
+    const unt = await q("SELECT u.id, f.kuerzel FROM unterricht u JOIN fach f ON f.id = u.fach_id WHERE u.klasse_id = $1 ORDER BY f.kuerzel", [k3a.id]);
+    const sch = await q("SELECT ks.person_id AS id FROM klasse_schueler ks JOIN person p ON p.id = ks.person_id WHERE ks.klasse_id = $1 ORDER BY p.extern_id", [k3a.id]);
+    for (let n = 0; n < sch.length; n++) for (let j = 0; j < unt.length; j++) {
+      let note = Math.min(6, Math.max(3, Math.round((NOTEN[n] + ((n * 7 + j * 3) % 5 - 2) * 0.25) * 2) / 2));
+      if (n === 5 && j < 4) note = 3.5; // knapp nicht erfüllt
+      if (n === 12 && j < 5) note = 3; // deutlich nicht erfüllt
+      await q("INSERT INTO zeugnisnote (unterricht_id, schueler_id, semester_id, gesetzt, status, geaendert_von) VALUES ($1,$2,$3,$4,$5,$6)", [unt[j].id, sch[n].id, sem1.id, note, ["D", "M"].includes(unt[j].kuerzel) ? "entwurf" : "freigegeben", admin]);
+    }
+  }
+
+  // Maturaarbeit in 5c
+  const [k5c] = await q("SELECT id FROM klasse WHERE name = '5c'");
+  const [s5] = await q("SELECT ks.person_id AS id FROM klasse_schueler ks JOIN person p ON p.id = ks.person_id WHERE ks.klasse_id = $1 ORDER BY p.extern_id LIMIT 1", [k5c.id]);
+  await q("INSERT INTO konto (person_id, art, passwort_hash) VALUES ($1,'lokal',$2)", [s5.id, pwHash]);
+  const [ma] = await q(`INSERT INTO maturaarbeit (schueler_id, betreuer_id, fach_id, titel, fragestellung, status, abgabe_bis, bewertung) VALUES ($1,$2,$3,$4,$5,'in_arbeit','2027-01-15',$6) RETURNING id`,
+    [s5.id, lp.STC, fach.G, "Die Seegfrörni von 1963 in Zürcher Zeitzeugenberichten", "Wie erinnern sich Zeitzeuginnen und Zeitzeugen an die Seegfrörni 1963, und wie unterscheiden sich ihre Berichte von der Zeitungsberichterstattung?",
+      { kriterien: [{ id: "prozess", name: "Arbeitsprozess", gewicht: 25, note: null, kommentar: "" }, { id: "produkt", name: "Produkt (schriftliche Arbeit)", gewicht: 50, note: null, kommentar: "" }, { id: "praesentation", name: "Präsentation", gewicht: 25, note: null, kommentar: "" }] }]);
+  const MS = ["Thema und Fragestellung festgelegt", "Disposition und Zeitplan", "Zwischenbericht", "Rohfassung", "Abgabe der Arbeit", "Präsentation"];
+  for (let r = 0; r < MS.length; r++) await q("INSERT INTO ma_meilenstein (arbeit_id, titel, faellig, reihenfolge, erledigt_am, bestaetigt_am, bestaetigt_von) VALUES ($1,$2,$3,$4,$5,$5,$6)",
+    [ma.id, MS[r], ["2026-06-15", "2026-08-31", "2026-10-30", "2026-12-11", "2027-01-15", "2027-02-26"][r], r, r < 2 ? "2026-09-01T10:00:00Z" : null, r < 2 ? lp.STC : null]);
+  for (const [d, art, t, h, von] of [["2026-09-14", "eintrag", "Drei Interviewpartner gefunden, Fragebogen entworfen.", 3, s5.id], ["2026-10-02", "besprechung", "Fragebogen besprochen: offene Fragen stärker gewichten.", null, lp.STC], ["2026-10-20", "eintrag", "Zwei Interviews geführt und transkribiert.", 6, s5.id]])
+    await q("INSERT INTO ma_journal (arbeit_id, autor_id, datum, art, text, stunden) VALUES ($1,$2,$3,$4,$5,$6)", [ma.id, von, d, art, t, h]);
+}
+
 await q("COMMIT");
 await c.end();
 console.log(`Testschule «seeufer» angelegt. Anmeldung: /s/seeufer · admin@seeufer.test oder martin.keller@seeufer.test · Passwort: ${PW}`);

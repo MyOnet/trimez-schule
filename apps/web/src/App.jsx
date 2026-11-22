@@ -31,6 +31,16 @@ import Ergebnis from "./seiten/pruefung/Ergebnis.jsx";
 import LernumgebungSeite from "./seiten/Lernumgebung.jsx";
 import Lektion from "./seiten/Lektion.jsx";
 import LektionSchueler from "./seiten/LektionSchueler.jsx";
+import Auftraege, { AuftragDetail } from "./seiten/Auftraege.jsx";
+import Raeume, { Raum } from "./seiten/Raum.jsx";
+import Mitteilungen, { Glocke } from "./seiten/Mitteilungen.jsx";
+import Formulare, { Formular, FormularOeffentlich } from "./seiten/Formulare.jsx";
+import Kalender from "./seiten/Kalender.jsx";
+import Absenzen, { SchuelerAbsenzen } from "./seiten/Absenzen.jsx";
+import Ablage, { Laufwerk } from "./seiten/Ablage.jsx";
+import Zeugnisse from "./seiten/Zeugnisse.jsx";
+import Matura, { MaturaDetail } from "./seiten/Matura.jsx";
+import Eltern from "./seiten/Eltern.jsx";
 import { lazy, Suspense } from "react";
 const Notizbuecher = lazy(() => import("./notizbuch/Notizbuecher.jsx"));
 const NotizbuchSeite = lazy(() => import("./notizbuch/Notizbuch.jsx"));
@@ -63,6 +73,7 @@ function Bereich() {
   const abmelden = async () => { await api("/api/abmelden", { methode: "POST" }).catch(() => {}); nav(`/s/${kurz}/anmelden`); };
   const verwalten = rechte["klasse.verwalten"];
   const schueler = ich.rollen.includes("schueler") && ich.rollen.length === 1;
+  const nurEltern = ich.rollen.includes("eltern") && ich.rollen.length === 1;
   const voll = /\/notizbuch\/[0-9a-f-]{36}/.test(ort.pathname);
   const eingebettet = new URLSearchParams(ort.search).get("eingebettet") === "1";
   const breit = /\/(noten|umwandlung\/[^/]+)$/.test(ort.pathname) || /\/pruefungen\/[^/]+(\/(aufsicht|korrektur))?$/.test(ort.pathname);
@@ -79,17 +90,36 @@ function Bereich() {
           <div className="marke"><Wortmarke /><span className="schule-name">{ich.schule.name.replace(/ \(Testschule\)$/, "")}</span></div>
           {!ich.zweiterFaktor.einrichtenPflicht && <>
             {L(`${b}/`, N.start, Symbol.start, true)}
-            {schueler ? <>
+            <Glocke kurz={kurz} />
+            {nurEltern ? <>
+              {L(`${b}/kalender`, "Kalender", Symbol.kalender)}
+              {rechte.matura && L(`${b}/matura`, "Maturaarbeit", Symbol.matura)}
+            </> : schueler ? <>
+              {L(`${b}/kalender`, "Kalender", Symbol.kalender)}
+              {L(`${b}/auftraege`, "Aufträge", Symbol.auftrag)}
+              {L(`${b}/raum`, "Klassenräume", Symbol.raum)}
               {L(`${b}/notizbuch`, "Notizbücher", Symbol.notizbuch)}
               {L(`${b}/material`, "Material", Symbol.material)}
+              {L(`${b}/formulare`, "Formulare", Symbol.formular)}
+              {L(`${b}/ablage`, "Ablage", Symbol.ablage)}
               {L(`${b}/meine-noten`, "Meine Noten", Symbol.noten)}
+              {L(`${b}/absenzen`, "Absenzen", Symbol.absenz)}
+              {rechte.matura && L(`${b}/matura`, "Maturaarbeit", Symbol.matura)}
               {L(`${b}/lernumgebung`, "Lernumgebung", Symbol.unterricht)}
             </> : <>
+              {L(`${b}/kalender`, "Kalender", Symbol.kalender)}
+              {ich.unterrichtet && L(`${b}/auftraege`, "Aufträge", Symbol.auftrag)}
+              {ich.unterrichtet && L(`${b}/raum`, "Klassenräume", Symbol.raum)}
               {ich.unterrichtet && L(`${b}/notizbuch`, "Notizbücher", Symbol.notizbuch)}
               {rechte["material.erstellen"] && L(`${b}/material`, "Material", Symbol.material)}
               {rechte["pruefung.verwalten"] && L(`${b}/pruefungen`, "Prüfungen", Symbol.pruefung)}
+              {rechte["formular.verwalten"] && L(`${b}/formulare`, "Formulare", Symbol.formular)}
+              {L(`${b}/ablage`, "Ablage", Symbol.ablage)}
+              {(ich.unterrichtet || rechte.absenzen) && L(`${b}/absenzen`, "Absenzen", Symbol.absenz)}
               {L(`${b}/klassen`, N.klassen, Symbol.klasse)}
               {L(`${b}/unterricht`, ich.rechte?.["unterricht.verwalten"] || verwalten ? N.unterricht : "Mein Unterricht", Symbol.unterricht)}
+              {rechte.zeugnisse && L(`${b}/zeugnisse`, "Zeugnisse", Symbol.zeugnis)}
+              {rechte.matura && L(`${b}/matura`, "Maturaarbeiten", Symbol.matura)}
             </>}
             {verwalten && <>
               <div className="nav-gruppe">Verwaltung</div>
@@ -185,8 +215,25 @@ export default function App() {
           <Route path="/" element={<Start />} />
           <Route path="/s/:kurz/anmelden" element={<Anmelden />} />
           <Route path="/s/:kurz/pruefung/:vid" element={<Pruefungsmodus />} />
+          <Route path="/f/:token" element={<FormularOeffentlich />} />
           <Route path="/s/:kurz" element={<Bereich />}>
-            <Route index element={<Uebersicht />} />
+            <Route index element={<StartSeite />} />
+            <Route path="mitteilungen" element={<Mitteilungen />} />
+            <Route path="auftraege" element={<Auftraege />} />
+            <Route path="auftraege/:id" element={<AuftragDetail />} />
+            <Route path="raum" element={<Raeume />} />
+            <Route path="raum/:uid" element={<Raum />} />
+            <Route path="formulare" element={<Formulare />} />
+            <Route path="formulare/:id" element={<Formular />} />
+            <Route path="kalender" element={<Kalender />} />
+            <Route path="absenzen" element={<Absenzen />} />
+            <Route path="absenzen/schueler/:sid" element={<SchuelerAbsenzen />} />
+            <Route path="ablage" element={<Ablage />} />
+            <Route path="ablage/:lw" element={<Laufwerk />} />
+            <Route path="zeugnisse" element={<Zeugnisse />} />
+            <Route path="matura" element={<Matura />} />
+            <Route path="matura/:id" element={<MaturaDetail />} />
+            <Route path="eltern" element={<Eltern />} />
             <Route path="zweiter-faktor" element={<ZweiterFaktor />} />
             <Route path="schuljahre" element={<Schuljahre />} />
             <Route path="faecher" element={<Faecher />} />
@@ -221,6 +268,12 @@ export default function App() {
       </BrowserRouter>
     </MeldungAnbieter>
   );
+}
+
+// Eltern (ohne andere Rolle) starten bei ihren Kindern
+function StartSeite() {
+  const ich = useIch();
+  return ich.rollen.length === 1 && ich.rollen[0] === "eltern" ? <Eltern /> : <Uebersicht />;
 }
 
 // Lehrpersonen: Ablage. Schülerinnen und Schüler: freigegebenes Material.

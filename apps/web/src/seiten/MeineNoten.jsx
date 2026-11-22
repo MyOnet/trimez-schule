@@ -5,13 +5,14 @@ import { fmtNote } from "@schule/shared";
 
 const KZ = { abwesend: "abwesend", nachholen: "wird nachgeholt", dispensiert: "dispensiert" };
 
-export default function MeineNoten() {
+export default function MeineNoten({ person }) {
   const [semester, setSemester] = useState("");
-  const z = useLaden(`/api/meine-noten${semester ? `?semester=${semester}` : ""}`);
+  const q = [semester && `semester=${semester}`, person && `person=${person}`].filter(Boolean).join("&");
+  const z = useLaden(`/api/meine-noten${q ? `?${q}` : ""}`, [q]);
   return (
     <Laden zustand={z}>{(d) => (
       <div>
-        <div className="kopf"><div><h1>Meine Noten</h1><p className="leise" style={{ marginTop: 6 }}>Hier erscheinen Noten, sobald die Lehrperson sie freigibt.</p></div>
+        <div className="kopf"><div>{!person && <h1>Meine Noten</h1>}<p className="leise" style={{ marginTop: 6 }}>Hier erscheinen Noten, sobald die Lehrperson sie freigibt.</p></div>
           {d.semesterListe && d.semesterListe.length > 1 && <div className="segment" role="group" aria-label="Semester">{d.semesterListe.map((s) => <button key={s.id} aria-pressed={d.semester && s.id === d.semester.id} onClick={() => setSemester(s.id)}>{s.nr}. Semester</button>)}</div>}
         </div>
         {!d.faecher.length ? <div className="leer"><b>Noch keine Noten in diesem Semester</b><span>Sobald eine Prüfung korrigiert und freigegeben ist, sehen Sie die Note hier.</span></div> : (

@@ -2,6 +2,7 @@
 import { geschuetzt } from "../sitzung.mjs";
 import { fehler } from "../fehler.mjs";
 import { protokolliere } from "../protokoll.mjs";
+import { fuerWen } from "../hilfen.mjs";
 import { pruefe, darf, punkteZuNote, schnitt, zeugnisVorschlag, muendlichVorschlag, runden } from "@schule/shared";
 
 const id = (x) => (/^[0-9a-f-]{36}$/.test(String(x || "")) ? x : fehler(400, "Ungültige Kennung."));
@@ -243,8 +244,7 @@ export default async function (app) {
 
   /* ---------- Meine Noten (Schülerinnen und Schüler) ---------- */
   app.get("/api/meine-noten", geschuetzt(async (req, res, q) => {
-    pruefe(req.ctx, "noten.eigene");
-    const pid = req.ctx.personId;
+    const { pid, unterricht } = await fuerWen(q, req, "noten.eigene");
     const [jahr] = await q("SELECT id FROM schuljahr WHERE aktiv LIMIT 1");
     if (!jahr) return { faecher: [] };
     const sem = await q("SELECT id, nr, von, bis FROM semester WHERE schuljahr_id = $1 ORDER BY nr", [jahr.id]);
@@ -255,7 +255,7 @@ export default async function (app) {
     const rows = await q(`SELECT u.id AS unterricht_id, f.name AS fach, f.farbe, b.id, b.titel, b.datum, b.gewicht, b.kategorie, b.max_punkte, l.note, l.punkte, l.kennzeichen, l.kommentar
       FROM unterricht u JOIN fach f ON f.id = u.fach_id JOIN bewertung b ON b.unterricht_id = u.id AND b.semester_id = $2 AND b.status = 'freigegeben'
       LEFT JOIN leistung l ON l.bewertung_id = b.id AND l.schueler_id = $3
-      WHERE u.id = ANY($1) ORDER BY f.name, b.datum`, [[...req.ctx.unterricht], s.id, pid]);
+      WHERE u.id = ANY($1) ORDER BY f.name, b.datum`, [[...unterricht], s.id, pid]);
     const faecher = new Map();
     for (const r of rows) {
       if (!faecher.has(r.unterricht_id)) faecher.set(r.unterricht_id, { fach: r.fach, farbe: r.farbe, noten: [] });

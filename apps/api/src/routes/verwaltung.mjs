@@ -162,9 +162,10 @@ export default async function (app) {
   /* ---------- Personen ---------- */
   app.get("/api/personen", geschuetzt(async (req, res, q) => {
     if (!istAdmin(req.ctx)) fehler(403, "Dafür fehlt Ihnen die Berechtigung.");
-    const rolle = ["admin", "schulleitung", "lehrperson", "schueler"].includes(req.query.rolle) ? req.query.rolle : null;
+    const rolle = ["admin", "schulleitung", "lehrperson", "schueler", "eltern"].includes(req.query.rolle) ? req.query.rolle : null;
     const such = String(req.query.q || "").trim().slice(0, 60);
-    return q(`SELECT p.id, p.vorname, p.nachname, p.email, p.kuerzel, p.extern_id, p.status,
+    return q(`SELECT p.id, p.vorname, p.nachname, p.email, p.kuerzel, p.extern_id, p.status, p.geburtsdatum,
+        (SELECT json_agg(json_build_object('id', k.id, 'vorname', k.vorname, 'nachname', k.nachname)) FROM eltern_kind ek JOIN person k ON k.id = ek.kind_id WHERE ek.eltern_id = p.id) AS kinder,
         array_agg(DISTINCT r.art) FILTER (WHERE r.art IS NOT NULL) AS rollen,
         (SELECT string_agg(k.name, ', ') FROM klasse_schueler ks JOIN klasse k ON k.id = ks.klasse_id JOIN schuljahr j ON j.id = k.schuljahr_id AND j.aktiv WHERE ks.person_id = p.id) AS klasse,
         EXISTS (SELECT 1 FROM konto x WHERE x.person_id = p.id AND x.art = 'lokal') AS lokales_konto
@@ -180,8 +181,8 @@ export default async function (app) {
     if (pid === req.ctx.personId && req.ctx.rollen.has("admin") && !d.rollen.includes("admin")) fehler(400, "Sie können sich die Administration nicht selbst wegnehmen.", "rollen");
     try {
       const [p] = pid
-        ? await q("UPDATE person SET vorname=$1, nachname=$2, email=$3, kuerzel=$4, extern_id=$5 WHERE id=$6 AND status='aktiv' RETURNING *", [d.vorname, d.nachname, d.email ?? null, d.kuerzel ?? null, d.extern_id ?? null, pid])
-        : await q("INSERT INTO person (vorname, nachname, email, kuerzel, extern_id) VALUES ($1,$2,$3,$4,$5) RETURNING *", [d.vorname, d.nachname, d.email ?? null, d.kuerzel ?? null, d.extern_id ?? null]);
+        ? await q("UPDATE person SET vorname=$1, nachname=$2, email=$3, kuerzel=$4, extern_id=$5, geburtsdatum = CASE WHEN $7 THEN $6::date ELSE geburtsdatum END WHERE id=$8 AND status='aktiv' RETURNING *", [d.vorname, d.nachname, d.email ?? null, d.kuerzel ?? null, d.extern_id ?? null, d.geburtsdatum ?? null, d.geburtsdatum !== undefined, pid])
+        : await q("INSERT INTO person (vorname, nachname, email, kuerzel, extern_id, geburtsdatum) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *", [d.vorname, d.nachname, d.email ?? null, d.kuerzel ?? null, d.extern_id ?? null, d.geburtsdatum ?? null]);
       if (!p) fehler(404, "Person nicht gefunden.");
       await q("DELETE FROM rolle WHERE person_id = $1 AND art <> ALL($2)", [p.id, d.rollen]);
       for (const r of d.rollen) await q("INSERT INTO rolle (person_id, art) VALUES ($1,$2) ON CONFLICT DO NOTHING", [p.id, r]);
@@ -261,9 +262,17 @@ export default async function (app) {
   }));
 
   /* ---------- Rechte für die Oberfläche (nur zum Ein- und Ausblenden) ---------- */
-  app.get("/api/rechte", geschuetzt(async (req) => {
+  app.get("/api/rechte", geschuetzt(async (req, res, q) => {
     const out = {};
-    for (const a of ["schule.einstellungen", "schuljahr.verwalten", "klasse.verwalten", "fach.verwalten", "person.verwalten", "unterricht.verwalten", "import.ausfuehren", "protokoll.lesen", "material.erstellen", "pruefung.verwalten"]) out[a] = darf(req.ctx, a);
+    for (const a of ["schule.einstellungen", "schuljahr.verwalten", "klasse.verwalten", "fach.verwalten", "person.verwalten", "unterricht.verwalten", "import.ausfuehren", "protokoll.lesen", "material.erstellen", "pruefung.verwalten",
+      "schulmitteilung.verfassen", "formular.verwalten", "stundenplan.verwalten", "stundenplan.aendern", "termin.schule", "pruefungslimit.ausnahme", "promotion.entscheiden", "matura.verwalten", "matura.betreuen", "eltern.verwalten", "absenz.eigene"]) out[a] = darf(req.ctx, a);
+    // Ohne Objekt: ob die Person überhaupt eine Klasse führt (Absenzen und Zeugnisse der Klasse)
+    out.klassenlehrperson = req.ctx.klp.size > 0;
+    out.absenzen = out.klassenlehrperson || req.ctx.rollen.has("admin") || req.ctx.rollen.has("schulleitung");
+    out.eltern = req.ctx.rollen.has("eltern");
+    // Maturaarbeit im Menü: Leitung, Lehrpersonen mit Betreuung, Schüler/innen (und Eltern) mit eigener Arbeit
+    out.matura = out["matura.verwalten"] || !!(await q("SELECT 1 FROM maturaarbeit WHERE schueler_id = $1 OR betreuer_id = $1 OR koreferent_id = $1 OR schueler_id = ANY($2) LIMIT 1", [req.ctx.personId, [...req.ctx.kinder]])).length;
+    out.zeugnisse = out.klassenlehrperson || req.ctx.rollen.has("admin") || req.ctx.rollen.has("schulleitung");
     return out;
   }, { konto: true }));
 }

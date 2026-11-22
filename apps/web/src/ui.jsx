@@ -90,6 +90,16 @@ export const Symbol = {
   anhalten: () => <svg viewBox="0 0 24 24" {...P}><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>,
   senden: () => <svg viewBox="0 0 24 24" {...P}><path d="M4 12l16-7-6 16-3-6.5z" /><path d="M11 14.5L20 5" /></svg>,
   menu: () => <svg viewBox="0 0 24 24" {...P} width="22" height="22"><path d="M4 7h16M4 12h16M4 17h16" /></svg>,
+  auftrag: () => <svg viewBox="0 0 24 24" {...P}><path d="M7 3.5h10v17H7z" /><path d="M10 3.5V2.5h4v1M10 9h4M10 13h4M10 17h2" /></svg>,
+  raum: () => <svg viewBox="0 0 24 24" {...P}><path d="M4 5h16v10H9l-5 4z" /><path d="M8 9h8M8 12h5" /></svg>,
+  glocke: () => <svg viewBox="0 0 24 24" {...P}><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>,
+  formular: () => <svg viewBox="0 0 24 24" {...P}><rect x="4" y="3.5" width="16" height="17" rx="2" /><circle cx="8.5" cy="9" r="1.2" /><circle cx="8.5" cy="14" r="1.2" /><path d="M12 9h5M12 14h5" /></svg>,
+  kalender: () => <svg viewBox="0 0 24 24" {...P}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4M8 14h2M12 14h2M8 17h2" /></svg>,
+  absenz: () => <svg viewBox="0 0 24 24" {...P}><circle cx="12" cy="12" r="8" /><path d="M12 7.5V12l3 2" /></svg>,
+  ablage: () => <svg viewBox="0 0 24 24" {...P}><path d="M4 14l2-9h12l2 9M4 14v5h16v-5M4 14h5l1 2h4l1-2h5" /></svg>,
+  zeugnis: () => <svg viewBox="0 0 24 24" {...P}><path d="M6 3.5h12v17H6z" /><path d="M9 8h6M9 11.5h6" /><circle cx="12" cy="16" r="2" /></svg>,
+  matura: () => <svg viewBox="0 0 24 24" {...P}><path d="M2.5 9L12 5l9.5 4L12 13z" /><path d="M6.5 11v4.5c1.5 1.5 3.5 2 5.5 2s4-.5 5.5-2V11M21.5 9v5" /></svg>,
+  eltern: () => <svg viewBox="0 0 24 24" {...P}><circle cx="8" cy="7.5" r="2.8" /><circle cx="16.5" cy="10.5" r="2" /><path d="M3 19c.6-3.4 2.6-5.5 5-5.5s4.4 2.1 5 5.5M13.5 19c.4-2.3 1.6-3.8 3-3.8s2.6 1.5 3 3.8" /></svg>,
   notizbuch: () => <svg viewBox="0 0 24 24" {...P}><path d="M6 3.5h11a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6z" /><path d="M6 3.5v17M3.5 7.5H6M3.5 12H6M3.5 16.5H6M10 8h5.5M10 11.5h4" /></svg>,
 };
 
@@ -135,3 +145,26 @@ export function wann(d) {
   if (tage < -1 && tage > -7) return `in ${-tage} Tagen`;
   return t.toLocaleDateString("de-CH", { day: "numeric", month: "short", ...(t.getFullYear() !== jetzt.getFullYear() ? { year: "numeric" } : {}) });
 }
+
+/** Sichere Darstellung von Text mit Zeilenumbrüchen */
+export const Absaetze = ({ text }) => <>{String(text || "").split(/\n{2,}/).map((t, i) => <p key={i} style={{ whiteSpace: "pre-wrap", margin: "0 0 .6em" }}>{t}</p>)}</>;
+/** Dateien als Liste mit Link (pfad: z. B. "/api/auftrag-dateien/") */
+export function DateiListe({ dateien, pfad, loeschen }) {
+  if (!dateien || !dateien.length) return null;
+  return <ul className="liste-kompakt" style={{ listStyle: "none", padding: 0, margin: "8px 0" }}>{dateien.map((d) => <li key={d.id} className="reihe" style={{ gap: 8, alignItems: "center" }}>
+    <a href={`${pfad}${d.id}?ansicht=1`} target="_blank" rel="noopener">{d.name}</a><span className="leise klein">{groesse(d.groesse)}</span>
+    {loeschen && <button className="knopf leise-knopf klein" aria-label={`${d.name} entfernen`} onClick={() => loeschen(d)}><Symbol.papierkorb /></button>}</li>)}</ul>;
+}
+/** Datei wählen und gleich hochladen */
+export function DateiKnopf({ text = "Datei hochladen", onDatei, mehrere, accept }) {
+  const ref = useRef(null);
+  return <><button type="button" className="knopf" onClick={() => ref.current.click()}><Symbol.hoch />{text}</button>
+    <input ref={ref} type="file" hidden multiple={mehrere} accept={accept} onChange={async (e) => { const f = [...e.target.files]; e.target.value = ""; for (const x of f) await onDatei(x); }} /></>;
+}
+export const tagCH = (d) => (d ? new Date(d.length === 10 ? d + "T12:00:00" : d).toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "short" }) : "");
+/** Für <input type="datetime-local">: ISO → lokale Zeit und zurück */
+export const lokal = (iso) => { if (!iso) return ""; const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); };
+export const ausLokal = (v) => (v ? new Date(v).toISOString() : null);
+/** Kurse der Person für eine Auswahl (Lehrpersonen: was sie unterrichten; Schüler/innen: was sie besuchen) */
+export function useKurse() { return useLaden("/api/raeume"); }
+export const kursName = (u) => `${u.fach} ${u.klasse}${u.gruppe ? ` (${u.gruppe})` : ""}`;

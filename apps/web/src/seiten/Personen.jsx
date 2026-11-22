@@ -2,8 +2,9 @@ import { useState } from "react";
 import { api } from "../api.js";
 import { useLaden, Laden, Dialog, useMeldung } from "../ui.jsx";
 import { TEXTE } from "@schule/shared";
+import { ElternVerknuepfung } from "./Eltern.jsx";
 
-const ROLLEN = ["schueler", "lehrperson", "schulleitung", "admin"];
+const ROLLEN = ["schueler", "lehrperson", "schulleitung", "admin", "eltern"];
 export default function Personen() {
   const meld = useMeldung();
   const [rolle, setRolle] = useState(""); const [q, setQ] = useState("");
@@ -11,7 +12,7 @@ export default function Personen() {
   const [form, setForm] = useState(null); const [fehler, setFehler] = useState(null); const [pw, setPw] = useState(null);
   const speichern = async (e) => {
     e.preventDefault();
-    const daten = { vorname: form.vorname, nachname: form.nachname, email: form.email || null, kuerzel: form.kuerzel || null, extern_id: form.extern_id || null, rollen: form.rollen };
+    const daten = { vorname: form.vorname, nachname: form.nachname, email: form.email || null, kuerzel: form.kuerzel || null, extern_id: form.extern_id || null, rollen: form.rollen, geburtsdatum: form.geburtsdatum || null };
     try { await api(form.id ? `/api/personen/${form.id}` : "/api/personen", { methode: form.id ? "PUT" : "POST", daten }); setForm(null); meld("Gespeichert."); z.neu(); }
     catch (x) { setFehler(x); }
   };
@@ -22,7 +23,7 @@ export default function Personen() {
   return (
     <div className="stapel">
       <div className="kopf"><div><h1>Personen</h1><p>Schülerinnen, Schüler, Lehrpersonen und Schulleitung. Für viele auf einmal: Import.</p></div>
-        <button className="knopf haupt-knopf" onClick={() => { setFehler(null); setForm({ vorname: "", nachname: "", email: "", kuerzel: "", extern_id: "", rollen: ["schueler"] }); }}>Neue Person</button></div>
+        <button className="knopf haupt-knopf" onClick={() => { setFehler(null); setForm({ vorname: "", nachname: "", email: "", kuerzel: "", extern_id: "", geburtsdatum: "", rollen: ["schueler"] }); }}>Neue Person</button></div>
       <div className="reihe">
         <input type="search" aria-label="Suchen" placeholder="Name, E-Mail oder Kürzel" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} />
         <select aria-label="Rolle" value={rolle} onChange={(e) => setRolle(e.target.value)} style={{ maxWidth: 220 }}><option value="">Alle Rollen</option>{ROLLEN.map((r) => <option key={r} value={r}>{TEXTE.rollen[r]}</option>)}</select>
@@ -34,7 +35,7 @@ export default function Personen() {
             <td><b>{p.nachname}</b> {p.vorname}{p.kuerzel && <span className="leise"> ({p.kuerzel})</span>}</td>
             <td><div className="chips">{(p.rollen || []).map((r) => <span key={r} className={"chip" + (r === "lehrperson" ? " gruen" : r === "admin" ? " gelb" : "")}>{TEXTE.rollen[r]}</span>)}</div></td>
             <td>{p.klasse || ""}</td><td className="klein">{p.email || <span className="leise">keine</span>}</td>
-            <td className="zahl"><button className="knopf klein-knopf" onClick={() => { setFehler(null); setForm({ ...p, email: p.email || "", kuerzel: p.kuerzel || "", extern_id: p.extern_id || "", rollen: p.rollen || [] }); }}>Bearbeiten</button></td>
+            <td className="zahl"><button className="knopf klein-knopf" onClick={() => { setFehler(null); setForm({ ...p, email: p.email || "", kuerzel: p.kuerzel || "", extern_id: p.extern_id || "", geburtsdatum: p.geburtsdatum || "", rollen: p.rollen || [] }); }}>Bearbeiten</button></td>
           </tr>)}</tbody>
         </table></div>)}</Laden>
       <Dialog offen={!!form} titel={form && form.id ? "Person bearbeiten" : "Neue Person"} onZu={() => setForm(null)}>
@@ -43,7 +44,9 @@ export default function Personen() {
           <div className="zwei"><label className="feld">Vorname<input value={form.vorname} onChange={set("vorname")} required maxLength={60} /></label><label className="feld">Nachname<input value={form.nachname} onChange={set("nachname")} required maxLength={60} /></label></div>
           <label className="feld">E-Mail<small>Für die Anmeldung mit Microsoft 365 oder edu-ID muss sie mit dem Konto übereinstimmen.</small><input type="email" value={form.email} onChange={set("email")} maxLength={200} /></label>
           <div className="zwei"><label className="feld">Kürzel<small>nur Lehrpersonen</small><input value={form.kuerzel} onChange={set("kuerzel")} maxLength={6} /></label><label className="feld">Nummer<small>aus der Schulverwaltung</small><input value={form.extern_id} onChange={set("extern_id")} maxLength={40} /></label></div>
+          {form.rollen.includes("schueler") && <label className="feld">Geburtsdatum<small>Eltern sehen Noten und Absenzen bis zum 18. Geburtstag.</small><input type="date" value={form.geburtsdatum || ""} onChange={set("geburtsdatum")} /></label>}
           <fieldset className="feld" style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontWeight: 700, marginBottom: 6 }}>Rollen</legend><div className="reihe">{ROLLEN.map((r) => <label key={r} className="check"><input type="checkbox" checked={form.rollen.includes(r)} onChange={() => rolleUm(r)} />{TEXTE.rollen[r]}</label>)}</div></fieldset>
+          {form.id && (form.rollen.includes("eltern") || form.rollen.includes("schueler")) && <ElternVerknuepfung person={form} />}
           {form.id && <div className="karte" style={{ padding: 14, background: "var(--flaeche2)" }}>
             <div className="zwischen"><span className="klein">{form.lokales_konto ? "Hat ein eigenes Konto (Passwort)." : "Kein eigenes Konto. Anmeldung über Microsoft 365 oder edu-ID."}</span>
               <button type="button" className="knopf klein-knopf" onClick={konto}>{form.lokales_konto ? "Passwort zurücksetzen" : "Eigenes Konto anlegen"}</button></div>

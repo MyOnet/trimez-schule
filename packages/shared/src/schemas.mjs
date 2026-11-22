@@ -26,7 +26,8 @@ export const Person = z.object({
   vorname: text(60), nachname: text(60),
   email: z.string().trim().toLowerCase().email("Keine gültige E-Mail-Adresse.").max(200).nullable().optional(),
   kuerzel: z.string().trim().max(6).nullable().optional(), extern_id: z.string().trim().max(40).nullable().optional(),
-  rollen: z.array(z.enum(["admin", "schulleitung", "lehrperson", "schueler"])).min(1, "Mindestens eine Rolle."),
+  rollen: z.array(z.enum(["admin", "schulleitung", "lehrperson", "schueler", "eltern"])).min(1, "Mindestens eine Rolle."),
+  geburtsdatum: datum.nullable().optional(),
 });
 
 export const Unterricht = z.object({

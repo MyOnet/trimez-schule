@@ -18,5 +18,10 @@ export async function kontext(q, personId) {
   const faecher = new Set((await q(`
     SELECT fg.fach_id AS id FROM fachgruppe_mitglied m JOIN fachgruppe fg ON fg.id = m.fachgruppe_id WHERE m.person_id = $1
     UNION SELECT u.fach_id FROM unterricht u WHERE u.id = ANY($2)`, [personId, [...lehrt]])).map((r) => r.id));
-  return { personId, person: p, rollen, unterricht, lehrt, klassen, faecher };
+  // Klassen, deren Klassenlehrperson die Person ist (Absenzen, Zeugnisse)
+  const klp = new Set((await q("SELECT id FROM klasse WHERE klassenlehrperson_id = $1", [personId])).map((r) => r.id));
+  // Eltern: Kinder unter 18 (oder volljährig mit Freigabe). Ohne Geburtsdatum gilt die Verknüpfung (die Schule hat sie erfasst).
+  const kinder = rollen.has("eltern") ? new Set((await q(`SELECT ek.kind_id AS id FROM eltern_kind ek JOIN person k ON k.id = ek.kind_id
+    WHERE ek.eltern_id = $1 AND k.status = 'aktiv' AND (k.geburtsdatum IS NULL OR k.geburtsdatum > current_date - interval '18 years' OR k.eltern_freigabe)`, [personId])).map((r) => r.id)) : new Set();
+  return { personId, person: p, rollen, unterricht, lehrt, klassen, faecher, klp, kinder };
 }

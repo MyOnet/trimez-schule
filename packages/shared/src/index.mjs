@@ -5,3 +5,6 @@ export * from "./pruefung.mjs";
 export * from "./rechner.mjs";
 export * from "./auffaelligkeiten.mjs";
 export { default as TEXTE } from "./texte/de.mjs";
+export * from "./formular.mjs";
+export * from "./kalender.mjs";
+export * from "./promotion.mjs";
